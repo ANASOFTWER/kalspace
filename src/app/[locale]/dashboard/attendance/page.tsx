@@ -136,10 +136,12 @@ export default function AttendancePage() {
     try {
       const now = new Date();
       if (isDemo) {
+        const mockId = `mock-session-${Date.now()}`;
+        setCurrentSessionId(mockId);
         setIsCheckedIn(true);
         setIsOnBreak(false);
         const newRecord: AttendanceRecord = {
-          id: `mock-session`,
+          id: mockId,
           day: 'اليوم',
           in: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
           out: '--:--',
@@ -191,7 +193,7 @@ export default function AttendancePage() {
       if (isDemo) {
         setIsCheckedIn(false);
         setIsOnBreak(false);
-        setHistory(prev => prev.map(r => r.id === 'mock-session' ? {
+        setHistory(prev => prev.map(r => r.id === currentSessionId ? {
           ...r,
           out: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
           total: 'Completed',
@@ -243,7 +245,7 @@ export default function AttendancePage() {
       const newStatus = isOnBreak ? 'Working' : 'Break';
       if (isDemo) {
         setIsOnBreak(!isOnBreak);
-        setHistory(prev => prev.map(r => r.id === 'mock-session' ? { ...r, status: newStatus } : r));
+        setHistory(prev => prev.map(r => r.id === currentSessionId ? { ...r, status: newStatus } : r));
         return;
       }
 
@@ -268,15 +270,7 @@ export default function AttendancePage() {
 
   return (
     <div className="h-full p-4 md:p-6 flex flex-col animate-fade-in-up">
-      {/* Demo Warning Banner */}
-      {isDemo && (
-        <div className="mb-6 p-4 bg-warning/10 border border-warning/20 rounded-2xl flex items-center gap-3 text-warning text-sm">
-          <AlertTriangle className="w-5 h-5 flex-shrink-0" />
-          <div>
-            <strong>وضع المعاينة (Demo Mode):</strong> حركات الحضور تتم محاكاتها محلياً. لربطها بقاعدة بيانات حقيقية، يرجى تهيئة Supabase.
-          </div>
-        </div>
-      )}
+
 
       <div className="flex items-center justify-between mb-8">
         <div>

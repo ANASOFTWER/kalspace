@@ -213,15 +213,7 @@ export default function ChatPage() {
 
   return (
     <div className="h-full p-4 md:p-6 flex flex-col animate-fade-in-up">
-      {/* Demo Warning Banner */}
-      {isDemo && (
-        <div className="mb-6 p-4 bg-warning/10 border border-warning/20 rounded-2xl flex items-center gap-3 text-warning text-sm">
-          <AlertTriangle className="w-5 h-5 flex-shrink-0" />
-          <div>
-            <strong>وضع المعاينة (Demo Mode):</strong> المراسلات يتم محاكاتها محلياً. لربطها بقاعدة بيانات حقيقية وبث مباشر (Realtime)، يرجى تهيئة Supabase.
-          </div>
-        </div>
-      )}
+
 
       <div className="flex-1 flex bg-slate-900/40 border border-white/5 rounded-2xl overflow-hidden min-h-[500px] h-[calc(100vh-140px)]">
         {/* Chat Sidebar */}

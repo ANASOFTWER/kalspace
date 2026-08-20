@@ -45,9 +45,7 @@ export default function OfficeSidebar({
     recipientName?: string;
   }
   
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-    { id: '1', author: 'سارة خالد', text: 'Welcome everyone to the new floor!', time: '10:02 AM' },
-  ]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [messageTarget, setMessageTarget] = useState<string>('all');
 

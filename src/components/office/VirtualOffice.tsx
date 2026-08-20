@@ -14,15 +14,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 
-const EXTRA_MOCK_EMPLOYEES: Employee[] = [
-  { id: '1', name: 'أحمد السبيعي', role: 'CEO', department: 'Management', status: 'online', x: 80, y: 120, videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4', profileImage: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150&h=150&fit=crop' },
-  { id: '2', name: 'سارة خالد', role: 'Product Manager', department: 'Product', status: 'busy', x: 420, y: 100, videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4' },
-  { id: '3', name: 'John Doe', role: 'Lead Developer', department: 'Engineering', status: 'meeting', x: 540, y: 100, videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4' },
-  { id: '4', name: 'فاطمة علي', role: 'HR Manager', department: 'HR', status: 'online', x: 250, y: 120 },
-  { id: '5', name: 'علي حسين', role: 'Backend Engineer', department: 'Engineering', status: 'online', x: 650, y: 100 },
-  { id: '6', name: 'نورة العتيبي', role: 'UI/UX Designer', department: 'Product', status: 'online', x: 420, y: 200 },
-  { id: '7', name: 'خالد القحطاني', role: 'Financial Analyst', department: 'Management', status: 'busy', x: 540, y: 200 },
-];
+const EXTRA_MOCK_EMPLOYEES: Employee[] = [];
 
 interface Furniture {
   id: string;
@@ -84,17 +76,22 @@ const OFFICE_DOORS: OfficeDoor[] = [
 
 export default function VirtualOffice() {
   const t = useTranslations('nav');
-  const [employees, setEmployees] = useState<Employee[]>(EXTRA_MOCK_EMPLOYEES.slice(0, 4));
+  const [employees, setEmployees] = useState<Employee[]>([{
+    id: '1',
+    name: 'أحمد السبيعي',
+    role: 'CEO',
+    department: 'Management',
+    status: 'online',
+    x: 80,
+    y: 120,
+  }]);
   const [loggedInUserId, setLoggedInUserId] = useState<string>('1'); // CEO by default
   const [currentRoom, setCurrentRoom] = useState('SaaS Main Office');
   const [activeInteractive, setActiveInteractive] = useState<string | null>(null);
   const [privateCallTargetId, setPrivateCallTargetId] = useState<string | null>(null);
   
   // Interactive mini-features state
-  const [stickyNotes, setStickyNotes] = useState<StickyNote[]>([
-    { id: '1', text: 'Daily Standup at 10 AM 🎯', color: 'bg-yellow-400/90 text-slate-900', author: 'سارة خالد' },
-    { id: '2', text: 'Commit clean code & review PRs! 💻', color: 'bg-cyan-400/90 text-slate-900', author: 'John Doe' },
-  ]);
+  const [stickyNotes, setStickyNotes] = useState<StickyNote[]>([]);
   const [newNoteText, setNewNoteText] = useState('');
   const [coffeeStatus, setCoffeeStatus] = useState<string | null>(null);
   const [arcadeScore, setArcadeScore] = useState(0);
@@ -817,19 +814,7 @@ export default function VirtualOffice() {
               <span>👥</span> دعوة فريقك
             </button>
 
-            {/* Edit Mode */}
-            {canEditMap && (
-              <button 
-                onClick={() => setIsEditMode(!isEditMode)} 
-                className={`px-3.5 py-2 rounded-xl border text-xs font-bold transition-all shadow-lg ${
-                  isEditMode 
-                    ? 'bg-amber-600 border-amber-400 text-white animate-pulse' 
-                    : 'bg-slate-900/90 border-slate-700 text-slate-200 hover:text-white'
-                }`}
-              >
-                {isEditMode ? 'إنهاء التعديل' : '🛠️ وضع البناء'}
-              </button>
-            )}
+
           </div>
         </div>
 
