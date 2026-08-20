@@ -1,0 +1,38 @@
+{
+  "landing": {
+    "title": "Tu Verdadera Oficina, en Cualquier Lugar.",
+    "subtitle": "Una sede digital completa para equipos remotos e híbridos.",
+    "start_free": "Comenzar gratis",
+    "watch_demo": "Ver cómo funciona"
+  },
+  "onboarding": {
+    "back": "Back",
+    "setup_office": "1. Setup Office",
+    "name_space": "2. Name Space",
+    "finish_title": "3. Finish & Login",
+    "setup_office_subtitle": "Design your virtual environment",
+    "url_label": "Space URL (Minimum 6 characters)",
+    "disclaimer": "Your space will be created immediately after sign in",
+    "theme": "Office Theme",
+    "cozy": "Cozy",
+    "modern": "Modern",
+    "green": "Green",
+    "size": "Company Size",
+    "people": "people",
+    "space_name_label": "Space Name",
+    "goal_label": "Primary Goal",
+    "goal_placeholder": "Select a goal...",
+    "goal_communication": "Better Team Communication",
+    "goal_productivity": "Higher Productivity",
+    "goal_visibility": "More Visibility",
+    "goal_culture": "Improve Company Culture",
+    "goal_engagement": "Boost Engagement",
+    "goal_other": "Other",
+    "sign_in_email": "Sign in with Email",
+    "or": "OR",
+    "sign_in_google": "Sign in with Google",
+    "sign_in_microsoft": "Sign in with Microsoft",
+    "next_name_space": "Next: Space Name",
+    "next_create_space": "Next: Create Space"
+  }
+}
