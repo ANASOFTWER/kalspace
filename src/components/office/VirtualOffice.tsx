@@ -1698,43 +1698,43 @@ export default function VirtualOffice() {
       </AnimatePresence>
 
       {/* ═══ MOBILE D-PAD CONTROLS ═══ */}
-      <div className="md:hidden absolute bottom-6 right-6 flex flex-col items-center gap-1 z-50 pointer-events-auto">
+      <div className="md:hidden absolute bottom-16 right-6 flex flex-col items-center gap-1 z-50 pointer-events-auto" dir="ltr">
         <button 
           onPointerDown={(e) => { e.preventDefault(); startMobileMove(0, -1); }}
           onPointerUp={stopMobileMove}
           onPointerLeave={stopMobileMove}
-          className="w-14 h-14 bg-slate-900/90 backdrop-blur border border-white/20 rounded-full flex items-center justify-center text-white active:bg-cyan-600 transition-colors shadow-xl touch-none"
+          className="w-12 h-12 bg-slate-900/90 backdrop-blur border border-white/20 rounded-full flex items-center justify-center text-white active:bg-cyan-600 transition-colors shadow-xl touch-none"
         >
-          <ChevronUp size={28} />
+          <ChevronUp size={24} />
         </button>
         <div className="flex gap-1">
           <button 
             onPointerDown={(e) => { e.preventDefault(); startMobileMove(-1, 0); }}
             onPointerUp={stopMobileMove}
             onPointerLeave={stopMobileMove}
-            className="w-14 h-14 bg-slate-900/90 backdrop-blur border border-white/20 rounded-full flex items-center justify-center text-white active:bg-cyan-600 transition-colors shadow-xl touch-none"
+            className="w-12 h-12 bg-slate-900/90 backdrop-blur border border-white/20 rounded-full flex items-center justify-center text-white active:bg-cyan-600 transition-colors shadow-xl touch-none"
           >
-            <ChevronRight size={28} />
+            <ChevronLeft size={24} />
           </button>
-          <div className="w-14 h-14 flex items-center justify-center">
-            <div className="w-6 h-6 rounded-full bg-cyan-500/20" />
+          <div className="w-12 h-12 flex items-center justify-center">
+            <div className="w-5 h-5 rounded-full bg-cyan-500/20" />
           </div>
           <button 
             onPointerDown={(e) => { e.preventDefault(); startMobileMove(1, 0); }}
             onPointerUp={stopMobileMove}
             onPointerLeave={stopMobileMove}
-            className="w-14 h-14 bg-slate-900/90 backdrop-blur border border-white/20 rounded-full flex items-center justify-center text-white active:bg-cyan-600 transition-colors shadow-xl touch-none"
+            className="w-12 h-12 bg-slate-900/90 backdrop-blur border border-white/20 rounded-full flex items-center justify-center text-white active:bg-cyan-600 transition-colors shadow-xl touch-none"
           >
-            <ChevronLeft size={28} />
+            <ChevronRight size={24} />
           </button>
         </div>
         <button 
           onPointerDown={(e) => { e.preventDefault(); startMobileMove(0, 1); }}
           onPointerUp={stopMobileMove}
           onPointerLeave={stopMobileMove}
-          className="w-14 h-14 bg-slate-900/90 backdrop-blur border border-white/20 rounded-full flex items-center justify-center text-white active:bg-cyan-600 transition-colors shadow-xl touch-none"
+          className="w-12 h-12 bg-slate-900/90 backdrop-blur border border-white/20 rounded-full flex items-center justify-center text-white active:bg-cyan-600 transition-colors shadow-xl touch-none"
         >
-          <ChevronDown size={28} />
+          <ChevronDown size={24} />
         </button>
       </div>
 
