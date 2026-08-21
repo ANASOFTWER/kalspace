@@ -338,7 +338,18 @@ export default function VirtualOffice() {
             profileImage: profile.avatar_url
           };
           setLoggedInUserId(profile.id);
-          setCompanyId(profile.company_id);
+          let currentCompanyId = profile.company_id;
+          
+          // Auto-assign stray users to the first company for demo purposes
+          if (!currentCompanyId) {
+            const { data: companies } = await supabase.from('companies').select('id').limit(1);
+            if (companies && companies.length > 0) {
+              currentCompanyId = companies[0].id;
+              await supabase.from('profiles').update({ company_id: currentCompanyId }).eq('id', profile.id);
+            }
+          }
+          
+          setCompanyId(currentCompanyId);
 
           // Check if user is currently punched in
           const { data: activeAttendance } = await supabase
@@ -815,6 +826,7 @@ export default function VirtualOffice() {
                       .update({ check_out: new Date().toISOString(), status: 'Completed' })
                       .eq('id', attendanceId);
                     if (!error) setAttendanceId(null);
+                    else setIsPunchedIn(true);
                   } else if (!isPunchedIn && companyId) {
                     // Clock in
                     setIsPunchedIn(true);
@@ -824,6 +836,7 @@ export default function VirtualOffice() {
                       .select('id')
                       .single();
                     if (data && !error) setAttendanceId(data.id);
+                    else setIsPunchedIn(false);
                   }
                 }}
                 className={clsx(
