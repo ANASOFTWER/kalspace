@@ -137,6 +137,7 @@ export default function VirtualOffice() {
   const lastPanPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isNightMode, setIsNightMode] = useState<boolean>(false);
   const [isAudioAmbientOn, setIsAudioAmbientOn] = useState<boolean>(false);
+  const [companyTheme, setCompanyTheme] = useState<string>('cozy');
 
   // CEO Profile Custom Modals State
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -310,6 +311,8 @@ export default function VirtualOffice() {
     if (savedCompanyName) setCompanyName(savedCompanyName);
     const savedSize = localStorage.getItem('company_size');
     if (savedSize) setCompanySize(savedSize);
+    const savedTheme = localStorage.getItem('company_theme');
+    if (savedTheme) setCompanyTheme(savedTheme);
     
     // Set default room zones & furnitures
     setRoomZones(getRoomsForFloor(currentRoom));
@@ -325,58 +328,93 @@ export default function VirtualOffice() {
   // Adjust mock employee count based on company size selection
   useEffect(() => {
     async function loadRealUser() {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      let realUser: Employee | null = null;
-      if (session) {
-        const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-        if (profile) {
-          realUser = {
-            id: profile.id,
-            name: profile.full_name || 'موظف',
-            role: profile.role || 'Employee',
-            department: '',
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        let realUser: Employee | null = null;
+        if (session) {
+          const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+          if (profile) {
+            realUser = {
+              id: profile.id,
+              name: profile.full_name || 'موظف',
+              role: profile.role || 'Employee',
+              department: '',
+              status: 'online',
+              x: 80,
+              y: 120,
+              profileImage: profile.avatar_url
+            };
+            setLoggedInUserId(profile.id);
+            let currentCompanyId = profile.company_id;
+            
+            // Auto-assign stray users to the first company for demo purposes
+            if (!currentCompanyId) {
+              const { data: companies } = await supabase.from('companies').select('id').limit(1);
+              if (companies && companies.length > 0) {
+                currentCompanyId = companies[0].id;
+                await supabase.from('profiles').update({ company_id: currentCompanyId }).eq('id', profile.id);
+              }
+            }
+            
+            // FOR TESTING: Force all users into the same presence channel regardless of their real company_id
+            currentCompanyId = 'kalspace_shared_demo_room';
+            
+            setCompanyId(currentCompanyId);
+
+            // Check if user is currently punched in
+            const { data: activeAttendance } = await supabase
+              .from('attendance')
+              .select('id')
+              .eq('user_id', profile.id)
+              .eq('status', 'Working')
+              .is('check_out', null)
+              .single();
+              
+            if (activeAttendance) {
+              setIsPunchedIn(true);
+              setAttendanceId(activeAttendance.id);
+            }
+          } else {
+            // Fallback if auth user exists but public.profiles doesn't have them yet (e.g. registered before trigger)
+            realUser = {
+              id: session.user.id,
+              name: session.user.email ? session.user.email.split('@')[0] : 'موظف جديد',
+              role: 'Employee',
+              department: '',
+              status: 'online',
+              x: 120,
+              y: 160,
+            };
+            setLoggedInUserId(session.user.id);
+            setCompanyId('kalspace_shared_demo_room');
+          }
+        }
+
+        const count = companySize === '6-10' ? 5 : companySize === '11-15' ? 6 : companySize === '16+' ? 7 : 4;
+        const mockUserList = EXTRA_MOCK_EMPLOYEES.slice(0, count - 1);
+        
+        if (realUser) {
+          setEmployees([realUser, ...mockUserList]);
+        } else {
+          const defaultCEO: Employee = {
+            id: '1',
+            name: localStorage.getItem('ceo_name') || 'أحمد السبيعي',
+            role: 'CEO',
+            department: 'Management',
             status: 'online',
             x: 80,
             y: 120,
-            profileImage: profile.avatar_url
+            profileImage: localStorage.getItem('ceo_image') || undefined
           };
-          setLoggedInUserId(profile.id);
-          let currentCompanyId = profile.company_id;
-          
-          // Auto-assign stray users to the first company for demo purposes
-          if (!currentCompanyId) {
-            const { data: companies } = await supabase.from('companies').select('id').limit(1);
-            if (companies && companies.length > 0) {
-              currentCompanyId = companies[0].id;
-              await supabase.from('profiles').update({ company_id: currentCompanyId }).eq('id', profile.id);
-            }
-          }
-          
-          setCompanyId(currentCompanyId);
-
-          // Check if user is currently punched in
-          const { data: activeAttendance } = await supabase
-            .from('attendance')
-            .select('id')
-            .eq('user_id', profile.id)
-            .eq('status', 'Working')
-            .is('check_out', null)
-            .single();
-            
-          if (activeAttendance) {
-            setIsPunchedIn(true);
-            setAttendanceId(activeAttendance.id);
-          }
+          setLoggedInUserId('1');
+          setCompanyId('kalspace_shared_demo_room'); // Set companyId for mock user too so presence channel connects
+          setEmployees([defaultCEO, ...mockUserList]);
         }
-      }
-
-      const count = companySize === '6-10' ? 5 : companySize === '11-15' ? 6 : companySize === '16+' ? 7 : 4;
-      const mockUserList = EXTRA_MOCK_EMPLOYEES.slice(0, count - 1);
-      
-      if (realUser) {
-        setEmployees([realUser, ...mockUserList]);
-      } else {
+      } catch (err) {
+        console.error("Failed to load user or session:", err);
+        const count = companySize === '6-10' ? 5 : companySize === '11-15' ? 6 : companySize === '16+' ? 7 : 4;
+        const mockUserList = EXTRA_MOCK_EMPLOYEES.slice(0, count - 1);
         const defaultCEO: Employee = {
           id: '1',
           name: localStorage.getItem('ceo_name') || 'أحمد السبيعي',
@@ -388,6 +426,7 @@ export default function VirtualOffice() {
           profileImage: localStorage.getItem('ceo_image') || undefined
         };
         setLoggedInUserId('1');
+        setCompanyId('kalspace_shared_demo_room');
         setEmployees([defaultCEO, ...mockUserList]);
       }
     }
@@ -436,9 +475,24 @@ export default function VirtualOffice() {
 
         console.log('Presence Sync: Active online users (excluding self)', onlineUsers);
         setEmployees(prev => {
+           // We keep the coordinates of existing users if they are already in the array
+           // so that they don't snap back to original positions on sync
+           const mergedUsers = onlineUsers.map(onlineUser => {
+             const existing = prev.find(p => p.id === onlineUser.id);
+             if (existing) {
+               return { ...onlineUser, x: existing.x, y: existing.y };
+             }
+             return onlineUser;
+           });
            const prevLocal = prev.filter(emp => emp.id === loggedInUserId || emp.id.length < 5);
-           return [...prevLocal, ...onlineUsers];
+           return [...prevLocal, ...mergedUsers];
         });
+      })
+      .on('broadcast', { event: 'move' }, (payload) => {
+        const { id, x, y } = payload.payload;
+        if (id !== loggedInUserId) {
+          setEmployees(prev => prev.map(emp => emp.id === id ? { ...emp, x, y } : emp));
+        }
       })
       .subscribe(async (status) => {
         console.log('Presence Subscription Status:', status);
@@ -497,22 +551,27 @@ export default function VirtualOffice() {
     
     // Use a small debounce/throttle to avoid spamming the websocket
     const timeout = setTimeout(() => {
-      console.log('Presence: Broadcasting coordinates update', { x: currentUser.x, y: currentUser.y });
-      channelRef.current.track(currentUser);
-    }, 100);
+      // Use broadcast for movement instead of track to be much faster
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'move',
+        payload: { id: loggedInUserId, x: currentUser.x, y: currentUser.y }
+      });
+    }, 50);
 
     return () => clearTimeout(timeout);
   }, [currentUser?.x, currentUser?.y, loggedInUserId]);
 
   // Spatial Proximity Calculation for Private Bubble
   const spatialBubbleTarget = useMemo(() => {
+    if (!currentUser) return null;
     const nearby = employees.find(emp => {
       if (emp.id === loggedInUserId) return false;
-      const dist = Math.hypot((currentUser.x - emp.x), (currentUser.y - emp.y));
+      const dist = Math.hypot(((currentUser.x || 0) - emp.x), ((currentUser.y || 0) - emp.y));
       return dist < 140;
     });
     return nearby || null;
-  }, [employees, currentUser.x, currentUser.y, loggedInUserId]);
+  }, [employees, currentUser?.x, currentUser?.y, loggedInUserId]);
 
   // Reactive door open/close states based on employee proximity to doorways
   const openDoorsMap = useMemo(() => {
@@ -644,7 +703,7 @@ export default function VirtualOffice() {
     }
   };
 
-  // Click on map to place/move furniture in build mode
+  // Click on map to place/move furniture in build mode or move player
   const handleCanvasClick = (e: React.MouseEvent) => {
     const mapEl = e.currentTarget as HTMLElement;
     const rect = mapEl.getBoundingClientRect();
@@ -658,13 +717,25 @@ export default function VirtualOffice() {
       setMovingIconId(null);
       return;
     }
+
+    // Move player on click/tap (only if we are not actively panning)
+    if (!isPanning) {
+      setEmployees(prev => prev.map(emp => {
+        if (emp.id === loggedInUserId) {
+          const targetX = Math.max(40, Math.min(mapWidth - 120, clickX - 45));
+          const targetY = Math.max(40, Math.min(mapHeight - 120, clickY - 45));
+          return { ...emp, x: targetX, y: targetY };
+        }
+        return emp;
+      }));
+    }
   };
 
   // Check proximity for action items
   const checkInteraction = (furniture: Furniture) => {
-    if (['chair', 'sofa'].includes(furniture.type)) return false;
-    const playerCenterX = currentUser.x + 45;
-    const playerCenterY = currentUser.y + 45;
+    if (!currentUser || ['chair', 'sofa'].includes(furniture.type)) return false;
+    const playerCenterX = (currentUser.x || 0) + 45;
+    const playerCenterY = (currentUser.y || 0) + 45;
     const furnCenterX = furniture.x + furniture.width / 2;
     const furnCenterY = furniture.y + furniture.height / 2;
     const distance = Math.hypot(playerCenterX - furnCenterX, playerCenterY - furnCenterY);
@@ -765,7 +836,7 @@ export default function VirtualOffice() {
 
   // Determine dynamic blueprint background mapping based on companySize choice and theme
   const getBlueprintBackground = () => {
-    const theme = typeof window !== 'undefined' ? localStorage.getItem('company_theme') || 'cozy' : 'cozy';
+    const theme = companyTheme;
 
     let sizeStr = 'small';
     if (companySize === '6-10') sizeStr = 'medium';
@@ -793,7 +864,7 @@ export default function VirtualOffice() {
   };
 
   return (
-    <div className="w-full h-full min-h-[700px] relative bg-[#02040a] rounded-3xl border border-white/10 overflow-hidden shadow-2xl flex select-none" dir="rtl">
+    <div className="w-full h-full min-h-[500px] md:min-h-[700px] relative bg-[#02040a] rounded-3xl border border-white/10 overflow-hidden shadow-2xl flex select-none" dir="rtl">
       <style jsx global>{`
         @keyframes volumetric-pulse {
           0%, 100% { opacity: 0.2; transform: scale(1); }
@@ -994,7 +1065,7 @@ export default function VirtualOffice() {
         {/* ═══ MAP CANVAS ═══ */}
         <div 
           ref={containerRef}
-          className="flex-1 w-full relative overflow-hidden bg-[#090d1f]"
+          className="flex-1 w-full relative overflow-auto bg-[#090d1f] scrollbar-hide"
           onWheel={(e) => {
             e.preventDefault();
             // Calculate mouse position relative to the map content
@@ -1044,11 +1115,14 @@ export default function VirtualOffice() {
               width: `${mapWidth}px`, 
               height: `${mapHeight}px`,
               ...getBlueprintBackground(),
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: `translate(calc(-50% + ${panOffset.x}px), calc(-50% + ${panOffset.y}px)) scale(${baseScale * zoomLevel})`,
-              transformOrigin: `${zoomOrigin.x}% ${zoomOrigin.y}%`,
+              // Mobile specific layout overrides to enable native scroll and prevent top/left cutoff
+              position: (containerSize.w < 768) ? 'relative' : 'absolute',
+              top: (containerSize.w < 768) ? '0' : '50%',
+              left: (containerSize.w < 768) ? '0' : '50%',
+              transform: (containerSize.w < 768)
+                ? `scale(${zoomLevel})`
+                : `translate(calc(-50% + ${panOffset.x}px), calc(-50% + ${panOffset.y}px)) scale(${baseScale * zoomLevel})`,
+              transformOrigin: (containerSize.w < 768) ? 'top left' : `${zoomOrigin.x}% ${zoomOrigin.y}%`,
               transition: isPanning ? 'none' : 'transform 0.15s ease-out',
               cursor: zoomLevel > 1.1 ? 'grab' : 'default',
             }}
@@ -1862,34 +1936,7 @@ export default function VirtualOffice() {
         </button>
       </div>
 
-      {/* ═══ DEBUG OVERLAY ═══ */}
-      <div className="absolute top-24 left-6 bg-slate-950/90 text-[10px] text-slate-300 p-4 rounded-2xl border border-white/10 z-50 space-y-1 max-w-[280px] pointer-events-auto shadow-2xl backdrop-blur-md">
-        <div className="font-extrabold text-white text-xs mb-2 border-b border-white/10 pb-1 flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
-          <span>🔍 معلومات المزامنة (Debug)</span>
-        </div>
-        <div>المستخدم: <span className="text-cyan-400 font-bold">{currentUser?.name} ({currentUser?.role})</span></div>
-        <div>رقم الشركة: <span className="text-slate-400 select-all font-mono">{companyId || 'غير متصل (NULL)'}</span></div>
-        <div>رقم الهوية: <span className="text-slate-400 select-all font-mono">{loggedInUserId}</span></div>
-        <div>حالة الشبكة: <span className={clsx(
-          "font-bold",
-          realtimeStatus === 'SUBSCRIBED' ? 'text-emerald-400' : 'text-amber-400'
-        )}>{realtimeStatus === 'SUBSCRIBED' ? 'متصل بنجاح (SUBSCRIBED)' : `جاري الاتصال... (${realtimeStatus})`}</span></div>
-        
-        <div className="pt-2 border-t border-white/5 mt-2">
-          <div className="font-bold text-white mb-1">المتصلون بالشركة:</div>
-          <ul className="space-y-1 list-disc list-inside max-h-24 overflow-y-auto pr-1">
-            {employees.filter(e => e.id !== loggedInUserId && e.id.length > 5).map(e => (
-              <li key={e.id} className="text-emerald-400 font-bold truncate">
-                {e.name}
-              </li>
-            ))}
-            {employees.filter(e => e.id !== loggedInUserId && e.id.length > 5).length === 0 && (
-              <li className="text-slate-500 italic">لا يوجد زملاء متصلين حالياً</li>
-            )}
-          </ul>
-        </div>
-      </div>
+
 
     </div>
   );
