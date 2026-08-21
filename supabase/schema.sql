@@ -11,24 +11,14 @@ drop table if exists public.companies cascade;
 -- تمكين إضافات UUID
 create extension if not exists "uuid-ossp";
 
--- 1. دالة جلب رقم الشركة بأمان لمنع الـ Infinite Recursion
-create or replace function public.get_auth_user_company_id()
-returns uuid
-language sql
-security definer
-set search_path = public
-as $$
-  select company_id from profiles where id = auth.uid();
-$$;
-
--- 2. جدول الشركات (Companies)
+-- 1. جدول الشركات (Companies)
 create table public.companies (
   id uuid default gen_random_uuid() primary key,
   name text not null,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 3. جدول الموظفين وملفاتهم الشخصية (Profiles)
+-- 2. جدول الموظفين وملفاتهم الشخصية (Profiles)
 create table public.profiles (
   id uuid references auth.users on delete cascade primary key,
   company_id uuid references public.companies(id) on delete set null,
@@ -37,7 +27,7 @@ create table public.profiles (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 4. جدول الدعوات (Invitations)
+-- 3. جدول الدعوات (Invitations)
 create table public.invitations (
   id uuid default gen_random_uuid() primary key,
   email text not null,
@@ -49,7 +39,7 @@ create table public.invitations (
   expires_at timestamp with time zone not null default (now() + interval '7 days')
 );
 
--- 5. جدول غرف الاجتماعات (Meetings)
+-- 4. جدول غرف الاجتماعات (Meetings)
 create table public.meetings (
   id uuid default gen_random_uuid() primary key,
   company_id uuid references public.companies(id) on delete cascade not null,
@@ -62,7 +52,7 @@ create table public.meetings (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 6. جدول المهام والمشاريع (Tasks)
+-- 5. جدول المهام والمشاريع (Tasks)
 create table public.tasks (
   id uuid default gen_random_uuid() primary key,
   company_id uuid references public.companies(id) on delete cascade not null,
@@ -73,7 +63,7 @@ create table public.tasks (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 7. جدول الحضور والانصراف (Attendance)
+-- 6. جدول الحضور والانصراف (Attendance)
 create table public.attendance (
   id uuid default gen_random_uuid() primary key,
   company_id uuid references public.companies(id) on delete cascade not null,
@@ -84,7 +74,7 @@ create table public.attendance (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 8. جدول طلبات الإجازات (Leaves)
+-- 7. جدول طلبات الإجازات (Leaves)
 create table public.leaves (
   id uuid default gen_random_uuid() primary key,
   company_id uuid references public.companies(id) on delete cascade not null,
@@ -97,7 +87,7 @@ create table public.leaves (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 9. جدول رسائل الدردشة (Chat Messages)
+-- 8. جدول رسائل الدردشة (Chat Messages)
 create table public.chat_messages (
   id uuid default gen_random_uuid() primary key,
   company_id uuid references public.companies(id) on delete cascade not null,
@@ -119,6 +109,20 @@ alter table public.tasks enable row level security;
 alter table public.attendance enable row level security;
 alter table public.leaves enable row level security;
 alter table public.chat_messages enable row level security;
+
+-- ========================================================
+-- دالة جلب رقم الشركة بأمان لمنع الـ Infinite Recursion
+-- (يجب أن يتم إنشاؤها بعد الجداول)
+-- ========================================================
+create or replace function public.get_auth_user_company_id()
+returns uuid
+language sql
+security definer
+set search_path = public
+as $$
+  select company_id from profiles where id = auth.uid();
+$$;
+
 
 -- ========================================================
 -- سياسات الوصول (RLS Policies) باستخدام الدالة الآمنة
