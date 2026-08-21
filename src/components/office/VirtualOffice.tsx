@@ -108,6 +108,9 @@ export default function VirtualOffice() {
   // Container size tracking for responsive fit
   const [containerSize, setContainerSize] = useState<{ w: number; h: number }>({ w: 1200, h: 800 });
   const baseScale = Math.min(containerSize.w / mapWidth, containerSize.h / mapHeight);
+  
+  // Realtime channel ref
+  const channelRef = useRef<any>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -397,6 +400,58 @@ export default function VirtualOffice() {
     // Intentionally empty
   }, []);
 
+  // Supabase Realtime Presence Sync
+  useEffect(() => {
+    if (!companyId || loggedInUserId === 'loading') return;
+
+    const channel = supabase.channel(`office_presence_${companyId}`, {
+      config: {
+        presence: {
+          key: loggedInUserId,
+        },
+      },
+    });
+
+    channelRef.current = channel;
+
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        const newState = channel.presenceState();
+        const onlineUsers: Employee[] = [];
+        
+        Object.keys(newState).forEach(key => {
+          if (newState[key] && newState[key].length > 0) {
+            const userState = newState[key][0] as unknown as Employee;
+            if (userState.id !== loggedInUserId) {
+              onlineUsers.push(userState);
+            }
+          }
+        });
+
+        setEmployees(prev => {
+           // Keep the logged-in user, and mock users, but update the realtime users
+           const prevLocal = prev.filter(emp => emp.id === loggedInUserId || emp.id.length < 5); // Mock users usually have id '1', '2' etc.
+           return [...prevLocal, ...onlineUsers];
+        });
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          // Once subscribed, broadcast our initial position
+          setEmployees(currentEmployees => {
+            const me = currentEmployees.find(emp => emp.id === loggedInUserId);
+            if (me) channel.track(me);
+            return currentEmployees;
+          });
+        }
+      });
+
+    return () => {
+      channel.unsubscribe();
+      channelRef.current = null;
+    };
+  }, [companyId, loggedInUserId]);
+
+
   // Track avatar movement directions and movement states for fluid animations
   useEffect(() => {
     setMovingAvatars(prev => {
@@ -423,7 +478,19 @@ export default function VirtualOffice() {
   }, [pomodoroActive, pomodoroSeconds]);
 
   const currentUser = employees.find(emp => emp.id === loggedInUserId) || employees[0];
-  const canEditMap = currentUser.role === 'CEO';
+  const canEditMap = currentUser?.role === 'CEO';
+
+  // Broadcast our movement
+  useEffect(() => {
+    if (!channelRef.current || !currentUser || loggedInUserId === 'loading') return;
+    
+    // Use a small debounce/throttle to avoid spamming the websocket
+    const timeout = setTimeout(() => {
+      channelRef.current.track(currentUser);
+    }, 100);
+
+    return () => clearTimeout(timeout);
+  }, [currentUser, loggedInUserId]);
 
   // Spatial Proximity Calculation for Private Bubble
   const spatialBubbleTarget = useMemo(() => {
