@@ -10,9 +10,10 @@ import {
   Coffee, HelpCircle, Play, 
   Plus, Sparkles, X, Award, ScreenShare, ArrowRightLeft,
   Armchair, Sofa, Flower2, TreePine, Monitor, Check, Trash2,
-  Tv, Volume2, ShieldCheck, Flame, RefreshCw, Zap, Edit3
+  Tv, Volume2, ShieldCheck, Flame, RefreshCw, Zap, Edit3, ChevronUp, ChevronDown, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import clsx from 'clsx';
+import { supabase } from '@/lib/supabase';
 
 const EXTRA_MOCK_EMPLOYEES: Employee[] = [];
 
@@ -77,15 +78,15 @@ const OFFICE_DOORS: OfficeDoor[] = [
 export default function VirtualOffice() {
   const t = useTranslations('nav');
   const [employees, setEmployees] = useState<Employee[]>([{
-    id: '1',
-    name: 'أحمد السبيعي',
-    role: 'CEO',
-    department: 'Management',
+    id: 'loading',
+    name: 'جاري التحميل...',
+    role: 'Employee',
+    department: '',
     status: 'online',
     x: 80,
     y: 120,
   }]);
-  const [loggedInUserId, setLoggedInUserId] = useState<string>('1'); // CEO by default
+  const [loggedInUserId, setLoggedInUserId] = useState<string>('loading');
   const [currentRoom, setCurrentRoom] = useState('SaaS Main Office');
   const [activeInteractive, setActiveInteractive] = useState<string | null>(null);
   const [privateCallTargetId, setPrivateCallTargetId] = useState<string | null>(null);
@@ -317,39 +318,55 @@ export default function VirtualOffice() {
 
   // Adjust mock employee count based on company size selection
   useEffect(() => {
-    const savedEmployees = localStorage.getItem('kalspace_employees');
-    if (savedEmployees) {
-      setEmployees(JSON.parse(savedEmployees));
-    } else {
-      let count = 4;
-      if (companySize === '6-10') count = 5;
-      else if (companySize === '11-15') count = 6;
-      else if (companySize === '16+') count = 7;
+    async function loadRealUser() {
+      const { data: { session } } = await supabase.auth.getSession();
       
-      const defaultCEO = {
-        id: '1',
-        name: localStorage.getItem('ceo_name') || 'أحمد السبيعي',
-        role: 'CEO',
-        department: 'Management',
-        status: 'online' as const,
-        x: 80,
-        y: 120,
-        profileImage: localStorage.getItem('ceo_image') || undefined
-      };
+      let realUser: Employee | null = null;
+      if (session) {
+        const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+        if (profile) {
+          realUser = {
+            id: profile.id,
+            name: profile.full_name || 'موظف',
+            role: profile.role || 'Employee',
+            department: '',
+            status: 'online',
+            x: 80,
+            y: 120,
+            profileImage: profile.avatar_url
+          };
+          setLoggedInUserId(profile.id);
+        }
+      }
+
+      const count = companySize === '6-10' ? 5 : companySize === '11-15' ? 6 : companySize === '16+' ? 7 : 4;
+      const mockUserList = EXTRA_MOCK_EMPLOYEES.slice(0, count - 1);
       
-      const list = [defaultCEO, ...EXTRA_MOCK_EMPLOYEES.slice(1, count)];
-      setEmployees(list);
+      if (realUser) {
+        setEmployees([realUser, ...mockUserList]);
+      } else {
+        const defaultCEO: Employee = {
+          id: '1',
+          name: localStorage.getItem('ceo_name') || 'أحمد السبيعي',
+          role: 'CEO',
+          department: 'Management',
+          status: 'online',
+          x: 80,
+          y: 120,
+          profileImage: localStorage.getItem('ceo_image') || undefined
+        };
+        setLoggedInUserId('1');
+        setEmployees([defaultCEO, ...mockUserList]);
+      }
     }
+    
+    loadRealUser();
     localStorage.setItem('company_size', companySize);
   }, [companySize]);
 
-  // Open profile modal automatically on first visit if CEO profile is not set
+  // Disable automatic profile modal since we are fetching from DB
   useEffect(() => {
-    const savedCeoName = localStorage.getItem('ceo_name');
-    if (!savedCeoName) {
-      setCeoEditName('أحمد السبيعي');
-      setShowProfileModal(true);
-    }
+    // Intentionally empty
   }, []);
 
   // Track avatar movement directions and movement states for fluid animations
@@ -467,6 +484,32 @@ export default function VirtualOffice() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [loggedInUserId, mapWidth, mapHeight]);
+
+  const mobileMoveIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const startMobileMove = (dx: number, dy: number) => {
+    if (mobileMoveIntervalRef.current) return;
+    const speed = 25;
+    const move = () => {
+      setEmployees(prev => prev.map(emp => {
+        if (emp.id === loggedInUserId) {
+          const nextX = Math.max(40, Math.min(mapWidth - 120, emp.x + (dx * speed)));
+          const nextY = Math.max(40, Math.min(mapHeight - 120, emp.y + (dy * speed)));
+          return { ...emp, x: nextX, y: nextY };
+        }
+        return emp;
+      }));
+    };
+    move();
+    mobileMoveIntervalRef.current = setInterval(move, 150);
+  };
+
+  const stopMobileMove = () => {
+    if (mobileMoveIntervalRef.current) {
+      clearInterval(mobileMoveIntervalRef.current);
+      mobileMoveIntervalRef.current = null;
+    }
+  };
 
   const lastRightClickTimeRef = useRef<number>(0);
 
@@ -1653,6 +1696,47 @@ export default function VirtualOffice() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* ═══ MOBILE D-PAD CONTROLS ═══ */}
+      <div className="md:hidden absolute bottom-6 right-6 flex flex-col items-center gap-1 z-50 pointer-events-auto">
+        <button 
+          onPointerDown={(e) => { e.preventDefault(); startMobileMove(0, -1); }}
+          onPointerUp={stopMobileMove}
+          onPointerLeave={stopMobileMove}
+          className="w-14 h-14 bg-slate-900/90 backdrop-blur border border-white/20 rounded-full flex items-center justify-center text-white active:bg-cyan-600 transition-colors shadow-xl touch-none"
+        >
+          <ChevronUp size={28} />
+        </button>
+        <div className="flex gap-1">
+          <button 
+            onPointerDown={(e) => { e.preventDefault(); startMobileMove(-1, 0); }}
+            onPointerUp={stopMobileMove}
+            onPointerLeave={stopMobileMove}
+            className="w-14 h-14 bg-slate-900/90 backdrop-blur border border-white/20 rounded-full flex items-center justify-center text-white active:bg-cyan-600 transition-colors shadow-xl touch-none"
+          >
+            <ChevronRight size={28} />
+          </button>
+          <div className="w-14 h-14 flex items-center justify-center">
+            <div className="w-6 h-6 rounded-full bg-cyan-500/20" />
+          </div>
+          <button 
+            onPointerDown={(e) => { e.preventDefault(); startMobileMove(1, 0); }}
+            onPointerUp={stopMobileMove}
+            onPointerLeave={stopMobileMove}
+            className="w-14 h-14 bg-slate-900/90 backdrop-blur border border-white/20 rounded-full flex items-center justify-center text-white active:bg-cyan-600 transition-colors shadow-xl touch-none"
+          >
+            <ChevronLeft size={28} />
+          </button>
+        </div>
+        <button 
+          onPointerDown={(e) => { e.preventDefault(); startMobileMove(0, 1); }}
+          onPointerUp={stopMobileMove}
+          onPointerLeave={stopMobileMove}
+          className="w-14 h-14 bg-slate-900/90 backdrop-blur border border-white/20 rounded-full flex items-center justify-center text-white active:bg-cyan-600 transition-colors shadow-xl touch-none"
+        >
+          <ChevronDown size={28} />
+        </button>
+      </div>
 
     </div>
   );
