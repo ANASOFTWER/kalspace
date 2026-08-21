@@ -34,5 +34,35 @@
     "sign_in_microsoft": "Sign in with Microsoft",
     "next_name_space": "Next: Space Name",
     "next_create_space": "Next: Create Space"
+  },
+  "auth": {
+    "login": "Log in",
+    "signup": "Sign up",
+    "email": "Email Address",
+    "password": "Password",
+    "name": "Full Name",
+    "company_name": "Company Name",
+    "forgot_password": "Forgot password?",
+    "dont_have_account": "Don't have an account?",
+    "already_have_account": "Already have an account?",
+    "welcome_back": "Welcome Back",
+    "create_account": "Create Account"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "virtual_office": "Virtual Office",
+    "company_setup": "Company Setup",
+    "employees": "Employees",
+    "meetings": "Meeting Rooms",
+    "tasks": "Tasks & Projects",
+    "attendance": "Attendance",
+    "leave": "Leave Requests",
+    "chat": "Messages",
+    "reports": "Reports",
+    "notifications": "Notifications",
+    "billing": "Billing & Subscriptions",
+    "settings": "Settings",
+    "support": "Support",
+    "logout": "Logout"
   }
 }

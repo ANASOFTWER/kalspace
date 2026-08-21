@@ -613,12 +613,18 @@ export default function VirtualOffice() {
     })));
   };
 
-  // Determine dynamic blueprint background mapping based on companySize choice
+  // Determine dynamic blueprint background mapping based on companySize choice and theme
   const getBlueprintBackground = () => {
-    let imgPath = '/images/office-maps/small.png';
-    if (companySize === '6-10') imgPath = '/images/office-maps/medium.png';
-    else if (companySize === '11-15') imgPath = '/images/office-maps/large.png';
-    else if (companySize === '16+') imgPath = '/images/office-maps/xlarge.png';
+    const theme = typeof window !== 'undefined' ? localStorage.getItem('company_theme') || 'cozy' : 'cozy';
+
+    let sizeStr = 'small';
+    if (companySize === '6-10') sizeStr = 'medium';
+    else if (companySize === '11-15') sizeStr = 'large';
+    else if (companySize === '16+') sizeStr = 'xlarge';
+
+    let imgPath = `/images/office-maps/${sizeStr}.png`;
+    if (theme === 'modern') imgPath = `/images/office-maps/modern_${sizeStr}.png`;
+    else if (theme === 'green') imgPath = `/images/office-maps/green_${sizeStr}.png`;
 
     return {
       backgroundImage: `url('${imgPath}?v=5')`,

@@ -12,25 +12,22 @@ interface OfficeMapPreviewProps {
 }
 
 function OfficeMapPreview({ theme, size, locale }: OfficeMapPreviewProps) {
-  // Determine which image to show based on size
-  let imageSrc = '/images/office-maps/small.png';
-  if (size === '6-10') imageSrc = '/images/office-maps/medium.png';
-  if (size === '11-15') imageSrc = '/images/office-maps/large.png';
-  if (size === '16-20' || size === '21-25' || size === '26+') imageSrc = '/images/office-maps/xlarge.png';
+  // Determine which image to show based on size and theme
+  const getOfficeMapSrc = () => {
+    let sizeStr = 'small';
+    if (size === '6-10') sizeStr = 'medium';
+    else if (size === '11-15') sizeStr = 'large';
+    else if (size === '16-20' || size === '21-25' || size === '26+') sizeStr = 'xlarge';
 
-  // Apply a subtle CSS filter based on the selected theme for variety
-  const getThemeFilter = () => {
-    switch(theme) {
-      case 'cozy':
-        return 'sepia(20%) contrast(1.1) brightness(0.95)';
-      case 'modern':
-        return 'contrast(1.15) brightness(0.9) hue-rotate(180deg) saturate(1.2)';
-      case 'green':
-        return 'contrast(1.1) brightness(0.95) hue-rotate(90deg) saturate(1.3)';
-      default:
-        return 'none';
-    }
+    if (theme === 'modern') return `/images/office-maps/modern_${sizeStr}.png`;
+    if (theme === 'green') return `/images/office-maps/green_${sizeStr}.png`;
+    return `/images/office-maps/${sizeStr}.png`;
   };
+
+  const imageSrc = getOfficeMapSrc();
+
+  // No CSS filters needed as we have custom realistic images
+  const getThemeFilter = () => 'none';
 
   return (
     <div className="w-full h-full relative overflow-hidden rounded-2xl border-2 border-slate-700/50 shadow-[0_8px_30px_rgb(0,0,0,0.5)]">
