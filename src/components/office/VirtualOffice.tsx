@@ -90,6 +90,7 @@ export default function VirtualOffice() {
   const [currentRoom, setCurrentRoom] = useState('SaaS Main Office');
   const [activeInteractive, setActiveInteractive] = useState<string | null>(null);
   const [privateCallTargetId, setPrivateCallTargetId] = useState<string | null>(null);
+  const [isPunchedIn, setIsPunchedIn] = useState(false);
   
   // Interactive mini-features state
   const [stickyNotes, setStickyNotes] = useState<StickyNote[]>([]);
@@ -769,54 +770,51 @@ export default function VirtualOffice() {
 
           <div className="flex items-center flex-wrap gap-3">
             
-            {/* 2D Blueprint Company Space / Size Selector */}
-            <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur-xl border border-white/15 px-3 py-1.5 rounded-xl shadow-lg">
-              <span className="text-xs font-bold text-slate-300">مساحة الشركة:</span>
-              <select 
-                value={companySize} 
-                onChange={(e) => setCompanySize(e.target.value)}
-                className="bg-slate-800 text-cyan-300 font-bold text-xs rounded-lg px-2 py-1 outline-none border border-cyan-500/30 cursor-pointer"
-              >
-                <option value="2-5">2 - 5 موظفين (مساحة صغيرة)</option>
-                <option value="6-10">6 - 10 موظفين (مساحة متوسطة)</option>
-                <option value="11-15">11 - 15 موظف (مساحة كبيرة)</option>
-                <option value="16+">16+ موظف (مساحة ضخمة)</option>
-              </select>
-            </div>
+            {/* 2D Blueprint Company Space / Size Selector (CEO Only) */}
+            {canEditMap && (
+              <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur-xl border border-white/15 px-3 py-1.5 rounded-xl shadow-lg">
+                <span className="text-xs font-bold text-slate-300 hidden sm:inline">مساحة الشركة:</span>
+                <select 
+                  value={companySize} 
+                  onChange={(e) => setCompanySize(e.target.value)}
+                  className="bg-slate-800 text-cyan-300 font-bold text-xs rounded-lg px-2 py-1 outline-none border border-cyan-500/30 cursor-pointer"
+                >
+                  <option value="2-5">2 - 5 موظفين</option>
+                  <option value="6-10">6 - 10 موظفين</option>
+                  <option value="11-15">11 - 15 موظف</option>
+                  <option value="16+">16+ موظف</option>
+                </select>
+              </div>
+            )}
 
-            {/* User Profile Switcher */}
+            {/* Clock-in / Clock-out (Employees Only) */}
+            {!canEditMap && (
+              <button 
+                onClick={() => setIsPunchedIn(!isPunchedIn)}
+                className={clsx(
+                  "px-4 py-1.5 rounded-xl text-xs font-black transition-all border flex items-center gap-1.5 shadow-lg pointer-events-auto",
+                  isPunchedIn 
+                    ? "bg-emerald-600/90 border-emerald-400 text-white shadow-[0_0_12px_rgba(16,185,129,0.4)]" 
+                    : "bg-rose-600/90 border-rose-400 text-white shadow-[0_0_12px_rgba(225,29,72,0.4)] hover:bg-rose-500/90"
+                )}
+              >
+                <span>{isPunchedIn ? '🟢' : '🔴'}</span> 
+                <span>{isPunchedIn ? 'تسجيل خروج' : 'بصمة دخول'}</span>
+              </button>
+            )}
+
+            {/* User Profile Info */}
             <div className="flex items-center gap-2.5 bg-slate-900/90 backdrop-blur-xl border border-white/15 p-1.5 rounded-xl shadow-lg">
-              <div className="text-right">
+              <div className="text-right hidden sm:block">
                 <div className="text-xs font-black text-white flex items-center gap-1">
                   {currentUser.role === 'CEO' && <span className="text-amber-400">👑</span>}
                   {currentUser.name}
-                  {currentUser.role === 'CEO' && (
-                    <button 
-                      onClick={() => {
-                        setCeoEditName(currentUser.name);
-                        setCeoEditImage(currentUser.profileImage || '');
-                        setShowProfileModal(true);
-                      }}
-                      className="text-cyan-400 hover:text-cyan-300 font-bold text-[10px] underline cursor-pointer mr-1 pointer-events-auto"
-                      title="تعديل الملف الشخصي للمدير"
-                    >
-                      (تعديل)
-                    </button>
-                  )}
                 </div>
-                <select 
-                  value={loggedInUserId}
-                  onChange={(e) => setLoggedInUserId(e.target.value)}
-                  className="text-[11px] text-cyan-400 font-bold bg-transparent outline-none cursor-pointer"
-                >
-                  {employees.map(emp => (
-                    <option key={emp.id} value={emp.id} className="bg-slate-900 text-white">
-                      {emp.role} - {emp.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="text-[10px] text-cyan-400 font-bold bg-transparent pt-0.5">
+                  {currentUser.role}
+                </div>
               </div>
-              <div className="w-8 h-8 rounded-lg overflow-hidden border border-white/20 flex items-center justify-center bg-gradient-to-br from-cyan-500 to-blue-600">
+              <div className="w-8 h-8 rounded-lg overflow-hidden border border-white/20 flex items-center justify-center bg-gradient-to-br from-cyan-500 to-blue-600 shrink-0">
                 {currentUser.profileImage ? (
                   <img src={currentUser.profileImage} alt={currentUser.name} className="w-full h-full object-cover" />
                 ) : (
@@ -829,7 +827,7 @@ export default function VirtualOffice() {
             <button 
               onClick={() => setIsAudioAmbientOn(!isAudioAmbientOn)}
               className={clsx(
-                "px-3 py-2 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 shadow-lg pointer-events-auto",
+                "px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 shadow-lg pointer-events-auto",
                 isAudioAmbientOn 
                   ? "bg-emerald-600/90 border-emerald-400 text-white shadow-[0_0_12px_rgba(16,185,129,0.3)] animate-pulse" 
                   : "bg-slate-900/90 border-slate-700 text-slate-300 hover:text-white"
@@ -837,14 +835,13 @@ export default function VirtualOffice() {
               title={isAudioAmbientOn ? "إيقاف صوت المكتب" : "تشغيل صوت المكتب الفضائي"}
             >
               <span>{isAudioAmbientOn ? '🔊' : '🔇'}</span> 
-              <span>صوت المكتب</span>
             </button>
 
             {/* Night Mode Toggle */}
             <button 
               onClick={() => setIsNightMode(!isNightMode)}
               className={clsx(
-                "px-3 py-2 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 shadow-lg pointer-events-auto",
+                "px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 shadow-lg pointer-events-auto",
                 isNightMode 
                   ? "bg-indigo-600/90 border-indigo-400 text-white shadow-[0_0_12px_rgba(99,102,241,0.3)]" 
                   : "bg-slate-900/90 border-slate-700 text-slate-300 hover:text-white"
@@ -852,17 +849,17 @@ export default function VirtualOffice() {
               title={isNightMode ? "وضع النهار" : "وضع الليل"}
             >
               <span>{isNightMode ? '🌙' : '🌞'}</span> 
-              <span>وضع الليل</span>
             </button>
 
-            {/* Invite Button */}
-            <button 
-              onClick={() => setInviteOpen(true)}
-              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:from-indigo-500 hover:to-blue-500 text-xs font-bold transition-all shadow-lg flex items-center gap-1.5"
-            >
-              <span>👥</span> دعوة فريقك
-            </button>
-
+            {/* Invite Button (CEO Only) */}
+            {canEditMap && (
+              <button 
+                onClick={() => setInviteOpen(true)}
+                className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:from-indigo-500 hover:to-blue-500 text-xs font-bold transition-all shadow-lg flex items-center gap-1.5 pointer-events-auto"
+              >
+                <span>👥</span> <span className="hidden md:inline">دعوة فريقك</span>
+              </button>
+            )}
 
           </div>
         </div>
