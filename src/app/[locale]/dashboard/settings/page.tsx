@@ -1,10 +1,15 @@
 "use client";
 
 import { useState } from 'react';
-import { Settings, Shield, User, Building } from 'lucide-react';
+import { Settings, Shield, User, Building, Globe } from 'lucide-react';
+import { useLocale } from 'next-intl';
+import { usePathname, useRouter } from '@/i18n/routing';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('account');
+  const locale = useLocale();
+  const pathname = usePathname();
+  const router = useRouter();
 
   return (
     <div className="h-full p-4 md:p-6 flex flex-col animate-fade-in-up">
@@ -23,6 +28,7 @@ export default function SettingsPage() {
                { id: 'account', label: 'الملف الشخصي', icon: User },
                { id: 'company', label: 'تفاصيل الشركة', icon: Building },
                { id: 'security', label: 'الأمان والخصوصية', icon: Shield },
+               { id: 'language', label: 'اللغة (Language)', icon: Globe },
              ].map(tab => (
                <button 
                  key={tab.id}
@@ -82,6 +88,30 @@ export default function SettingsPage() {
                    <input type="password" className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-4 py-2.5 text-white" placeholder="••••••••" />
                 </div>
                 <button className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-semibold transition-all">تغيير كلمة المرور</button>
+             </div>
+           )}
+
+           {activeTab === 'language' && (
+             <div className="space-y-6 max-w-xl">
+                <h2 className="text-lg font-semibold text-white">تفضيلات اللغة (Language Preferences)</h2>
+                <div>
+                   <label className="block text-sm font-medium text-slate-300 mb-2">اختر لغتك الأم (Choose your native language)</label>
+                   <select 
+                     value={locale}
+                     onChange={(e) => router.replace(pathname, { locale: e.target.value })}
+                     className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-4 py-2.5 text-white outline-none focus:border-primary"
+                   >
+                     <option value="ar">العربية (Arabic)</option>
+                     <option value="en">English (الإنجليزية)</option>
+                     <option value="fr">Français (French)</option>
+                     <option value="es">Español (Spanish)</option>
+                     <option value="de">Deutsch (German)</option>
+                     <option value="zh-CN">中文 (Chinese)</option>
+                     <option value="ja">日本語 (Japanese)</option>
+                     <option value="ko">한국어 (Korean)</option>
+                   </select>
+                </div>
+                <p className="text-sm text-slate-400">ستتغير لغة الواجهة فور اختيارك. (The interface language will change immediately after selection.)</p>
              </div>
            )}
         </div>

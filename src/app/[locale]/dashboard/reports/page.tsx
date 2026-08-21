@@ -35,16 +35,13 @@ export default function ReportsPage() {
         if (session) {
           const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
           if (profile) {
-            setCurrentUserRole(profile.role);
-            // Fetch attendance if manager
-            if (['CEO', 'admin', 'manager', 'hr'].includes(profile.role)) {
-              const { data: attendanceData } = await supabase
-                .from('attendance')
-                .select('*, profiles(full_name, role)')
-                .order('check_in', { ascending: false })
-                .limit(20);
-              if (attendanceData) setAttendanceRecords(attendanceData);
-            }
+            // Fetch attendance unconditionally (RLS handles security)
+            const { data: attendanceData } = await supabase
+              .from('attendance')
+              .select('*, profiles(full_name, role)')
+              .order('check_in', { ascending: false })
+              .limit(20);
+            if (attendanceData) setAttendanceRecords(attendanceData);
           }
         }
 
@@ -166,8 +163,7 @@ export default function ReportsPage() {
              </div>
           </div>
 
-          {/* Attendance Log Table (Managers Only) */}
-          {['CEO', 'admin', 'manager', 'hr'].includes(currentUserRole) && (
+          {/* Attendance Log Table */}
             <div className="glass-card rounded-2xl border border-white/5 overflow-hidden p-6 mt-8">
               <h2 className="text-lg font-semibold text-white mb-6">سجل حضور وانصراف الموظفين</h2>
               
@@ -209,7 +205,6 @@ export default function ReportsPage() {
                 </div>
               )}
             </div>
-          )}
         </>
       )}
     </div>

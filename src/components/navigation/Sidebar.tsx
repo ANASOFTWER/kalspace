@@ -1,18 +1,19 @@
 "use client";
 
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { Link, usePathname, useRouter } from '@/i18n/routing';
 import { 
   LayoutDashboard, Building2, Users, Video, 
   CheckSquare, Clock, CalendarOff, MessageSquare, 
   BarChart3, Bell, CreditCard, Settings, LifeBuoy, LogOut,
-  Briefcase
+  Briefcase, Globe
 } from 'lucide-react';
 import clsx from 'clsx';
 import { supabase } from '@/lib/supabase';
 
 export default function Sidebar() {
   const t = useTranslations('nav');
+  const locale = useLocale();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -103,7 +104,24 @@ export default function Sidebar() {
         })}
       </div>
 
-      <div className="p-4 mt-auto border-t border-card-border">
+      <div className="p-4 mt-auto border-t border-card-border space-y-2">
+        <div className="flex items-center gap-3 px-3 py-2 w-full text-sm font-medium text-slate-400">
+          <Globe className="w-5 h-5 shrink-0" />
+          <select 
+            value={locale}
+            onChange={(e) => router.replace(pathname, { locale: e.target.value })}
+            className="bg-transparent outline-none w-full cursor-pointer hover:text-white transition-colors"
+          >
+            <option value="ar" className="bg-slate-900">العربية</option>
+            <option value="en" className="bg-slate-900">English</option>
+            <option value="fr" className="bg-slate-900">Français</option>
+            <option value="es" className="bg-slate-900">Español</option>
+            <option value="de" className="bg-slate-900">Deutsch</option>
+            <option value="zh-CN" className="bg-slate-900">中文</option>
+            <option value="ja" className="bg-slate-900">日本語</option>
+            <option value="ko" className="bg-slate-900">한국어</option>
+          </select>
+        </div>
         <button 
           onClick={handleLogout}
           className="flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-sm font-medium text-danger hover:bg-danger/10 transition-colors cursor-pointer"
