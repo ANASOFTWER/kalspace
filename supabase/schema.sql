@@ -112,7 +112,6 @@ alter table public.chat_messages enable row level security;
 
 -- ========================================================
 -- دالة جلب رقم الشركة بأمان لمنع الـ Infinite Recursion
--- (يتم إنشاؤها بعد الجداول وتستخدم PL/pgSQL لتفادي مشاكل الترتيب)
 -- ========================================================
 create or replace function public.get_auth_user_company_id()
 returns uuid
@@ -129,12 +128,30 @@ end;
 $$;
 
 -- ========================================================
--- سياسات الوصول (RLS Policies) باستخدام الدالة الآمنة
+-- دالة للتحقق من وجود موظفين في الشركة (لتفادي مشاكل RLS عند التسجيل)
+-- ========================================================
+create or replace function public.has_company_profiles(company_uuid uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.profiles where company_id = company_uuid
+  );
+$$;
+
+-- ========================================================
+-- سياسات الوصول (RLS Policies) باستخدام الدوال الآمنة
 -- ========================================================
 
 -- الشركات
 create policy "Users can view their own company" on public.companies
-  for select using (id = public.get_auth_user_company_id());
+  for select using (
+    id = public.get_auth_user_company_id()
+    or
+    not public.has_company_profiles(id)
+  );
 
 create policy "Admins can update their own company" on public.companies
   for update using (
