@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from '@/i18n/routing';
 import LanguageSelector from '@/components/navigation/LanguageSelector';
 import Image from 'next/image';
+import { useTranslations, useLocale } from 'next-intl';
 import { 
   ArrowRight, Check, Shield, Lock, Eye, Fingerprint,
   MessageSquare, Video, Users, Zap, ChevronDown,
@@ -57,6 +58,11 @@ function AnimCounter({ target, suffix = '', duration = 2000 }: { target: number;
    MAIN LANDING PAGE
    ═══════════════════════════════════════════════════════ */
 export default function LandingPage() {
+  const t = useTranslations('landing');
+  const tAuth = useTranslations('auth');
+  const locale = useLocale();
+  const dir = locale === 'ar' ? 'rtl' : 'ltr';
+
   // Feature tabs
   const [activeFeature, setActiveFeature] = useState(0);
   const features = [
@@ -118,7 +124,7 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#050510] text-white overflow-x-hidden" dir="rtl">
+    <div className="min-h-screen bg-[#050510] text-white overflow-x-hidden" dir={dir}>
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
         .landing-page * { font-family: 'Inter', system-ui, sans-serif; }
@@ -150,9 +156,9 @@ export default function LandingPage() {
             </nav>
             <div className="flex items-center gap-4">
               <LanguageSelector />
-              <Link href="/login" className="text-sm font-semibold text-slate-200 hover:text-white transition-colors hidden sm:block">الدخول</Link>
+              <Link href="/login" className="text-sm font-semibold text-slate-200 hover:text-white transition-colors hidden sm:block">{tAuth('login')}</Link>
               <Link href="/signup" className="px-5 py-2.5 text-sm font-bold bg-white text-[#050510] rounded-xl hover:bg-slate-100 transition-all shadow-lg hover:shadow-cyan-500/20">
-                ابدأ مجاناً
+                {t('start_free')}
               </Link>
             </div>
           </div>
@@ -175,16 +181,13 @@ export default function LandingPage() {
             {/* Headline */}
             <motion.h1 initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.1 }}
               className="text-[clamp(2.6rem,7.5vw,5.8rem)] font-black leading-[1.08] tracking-tight">
-              <span className="shimmer-text">مكتبك الحقيقي.</span>
-              <br />
-              <span className="bg-gradient-to-l from-cyan-400 via-blue-400 to-indigo-400 bg-clip-text text-transparent">في أي مكان بالعالم.</span>
+              <span className="shimmer-text">{t('title')}</span>
             </motion.h1>
 
             {/* Subheadline */}
             <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.2 }}
               className="text-[clamp(1.05rem,2vw,1.35rem)] text-slate-200 max-w-2xl mx-auto leading-[1.8] font-normal drop-shadow-sm">
-              مقر افتراضي تفاعلي يجمع فريقك بصوت فضائي، فقاعات خصوصية مشفرة، 
-              ومحطات عمل ذكية — أكثر إنتاجية ومتعة من أي حل تقليدي.
+              {t('subtitle')}
             </motion.p>
 
             {/* CTAs */}
@@ -192,8 +195,8 @@ export default function LandingPage() {
               className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
               <Link href="/signup"
                 className="group w-full sm:w-auto px-8 py-4 bg-white text-[#050510] rounded-xl font-extrabold text-base transition-all hover:bg-slate-100 hover:shadow-[0_0_40px_rgba(255,255,255,0.25)] flex items-center justify-center gap-2">
-                ابدأ مجاناً — بدون بطاقة ائتمان
-                <ArrowRight className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
+                {t('start_free')}
+                <ArrowRight className="w-5 h-5 transition-transform group-hover:-translate-x-1 rtl:rotate-180" />
               </Link>
               <a href="#features"
                 className="w-full sm:w-auto px-8 py-4 border border-white/20 bg-white/5 hover:bg-white/10 text-white rounded-xl font-bold text-base transition-all flex items-center justify-center gap-2 shadow-lg">
@@ -506,11 +509,11 @@ export default function LandingPage() {
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
                   <Link href="/signup"
                     className="group px-10 py-4 bg-white text-[#050510] rounded-xl font-extrabold text-lg transition-all hover:bg-slate-100 hover:shadow-[0_0_50px_rgba(255,255,255,0.25)] flex items-center gap-2">
-                    ابدأ مجاناً الآن <ArrowRight className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
+                    {t('start_free')} <ArrowRight className="w-5 h-5 transition-transform group-hover:-translate-x-1 rtl:rotate-180" />
                   </Link>
                   <Link href="/login"
                     className="px-10 py-4 border border-white/20 bg-white/5 hover:bg-white/10 text-white rounded-xl font-bold text-lg transition-all">
-                    تسجيل الدخول
+                    {tAuth('login')}
                   </Link>
                 </div>
               </div>
