@@ -2,9 +2,9 @@
 
 import { useTranslations } from 'next-intl';
 import LanguageSelector from '@/components/navigation/LanguageSelector';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Users, Calendar, CheckSquare, Activity, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Users, Calendar, CheckSquare, Activity, ArrowRight, ArrowLeft, Upload, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useLocale } from 'next-intl';
 
@@ -16,6 +16,15 @@ export default function DashboardPage() {
   const [userName, setUserName] = useState('أحمد');
   const [companyName, setCompanyName] = useState('شركة المستقبل للتقنية');
   const [mapImage, setMapImage] = useState('/images/office-maps/modern_medium.png');
+  
+  // States for images and loading
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // 1. load local data first for fast render
@@ -30,14 +39,14 @@ export default function DashboardPage() {
     const size = localStorage.getItem('office_size') || 'medium';
     setMapImage(`/images/office-maps/${theme}_${size}.png`);
 
-    // 2. Fetch fresh profile from Supabase to sync name and company name
+    // 2. Fetch fresh profile from Supabase to sync name, company name, and images
     const fetchProfile = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           const { data: profile, error } = await supabase
             .from('profiles')
-            .select('full_name, company:companies(name)')
+            .select('full_name, avatar_url, company:companies(name, logo_url)')
             .eq('id', user.id)
             .single();
 
@@ -46,10 +55,15 @@ export default function DashboardPage() {
               setUserName(profile.full_name);
               localStorage.setItem('user_name', profile.full_name);
             }
+            if (profile.avatar_url) setAvatarUrl(profile.avatar_url);
+
             const comp = profile.company as any;
-            if (comp && comp.name) {
-              setCompanyName(comp.name);
-              localStorage.setItem('company_name', comp.name);
+            if (comp) {
+              if (comp.name) {
+                setCompanyName(comp.name);
+                localStorage.setItem('company_name', comp.name);
+              }
+              if (comp.logo_url) setLogoUrl(comp.logo_url);
             }
           }
         }
@@ -61,6 +75,70 @@ export default function DashboardPage() {
     fetchProfile();
   }, []);
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploadingAvatar(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No user found");
+
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${user.id}/${Math.random()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+      
+      await supabase.from('profiles').update({ avatar_url: data.publicUrl }).eq('id', user.id);
+      setAvatarUrl(data.publicUrl);
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      alert('Error uploading image');
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploadingLogo(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No user found");
+
+      // get company ID first
+      const { data: profile } = await supabase.from('profiles').select('company_id').eq('id', user.id).single();
+      if (!profile || !profile.company_id) throw new Error("No company found");
+
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${profile.company_id}/${Math.random()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('company-logos')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from('company-logos').getPublicUrl(filePath);
+      
+      await supabase.from('companies').update({ logo_url: data.publicUrl }).eq('id', profile.company_id);
+      setLogoUrl(data.publicUrl);
+    } catch (error) {
+      console.error('Error uploading logo:', error);
+      alert('Error uploading company logo');
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
+
   const stats = [
     { label: locale === 'ar' ? 'الموظفين المتصلين' : 'Employees Online', value: '12 / 24', color: 'from-blue-500/20 to-blue-500/5', iconColor: 'text-blue-400', glow: 'shadow-blue-500/20', Icon: Users },
     { label: locale === 'ar' ? 'اجتماعات اليوم' : "Today's Meetings", value: '8', color: 'from-purple-500/20 to-purple-500/5', iconColor: 'text-purple-400', glow: 'shadow-purple-500/20', Icon: Calendar },
@@ -70,6 +148,10 @@ export default function DashboardPage() {
 
   return (
     <div className="p-6 md:p-8 space-y-8 animate-fade-in-up">
+      {/* Hidden File Inputs */}
+      <input type="file" accept="image/*" className="hidden" ref={avatarInputRef} onChange={handleAvatarUpload} />
+      <input type="file" accept="image/*" className="hidden" ref={logoInputRef} onChange={handleLogoUpload} />
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
@@ -84,18 +166,44 @@ export default function DashboardPage() {
         <div className="flex items-center gap-4">
            <LanguageSelector />
            
-           <div className="hidden md:flex items-center gap-3 bg-white/5 backdrop-blur-md border border-white/10 px-4 py-2 rounded-xl shadow-[0_0_15px_rgba(0,0,0,0.2)]">
-              <div className="relative flex items-center justify-center">
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 absolute animate-ping opacity-75"></div>
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 relative z-10"></div>
-              </div>
+           {/* Company Badge with Logo Upload */}
+           <div 
+             onClick={() => logoInputRef.current?.click()}
+             className="hidden md:flex items-center gap-3 bg-white/5 backdrop-blur-md border border-white/10 px-4 py-2 rounded-xl shadow-[0_0_15px_rgba(0,0,0,0.2)] cursor-pointer hover:bg-white/10 transition-colors group"
+             title="Upload Company Logo"
+           >
+              {isUploadingLogo ? (
+                <Loader2 size={16} className="animate-spin text-slate-300" />
+              ) : logoUrl ? (
+                <img src={logoUrl} alt="Company Logo" className="w-6 h-6 rounded-full object-cover" />
+              ) : (
+                <div className="relative flex items-center justify-center">
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 absolute animate-ping opacity-75"></div>
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 relative z-10"></div>
+                </div>
+              )}
               <span className="text-sm font-semibold text-slate-200">{companyName}</span>
+              {!logoUrl && !isUploadingLogo && <Upload size={14} className="text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />}
            </div>
            
-           {/* Avatar */}
-           <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-primary to-purple-600 p-[2px] cursor-pointer shadow-lg hover:scale-105 transition-transform">
-             <div className="w-full h-full bg-slate-900 rounded-full flex items-center justify-center">
-               <span className="text-white font-bold text-lg">{userName.charAt(0)}</span>
+           {/* Avatar Upload */}
+           <div 
+             onClick={() => avatarInputRef.current?.click()}
+             className="relative w-12 h-12 rounded-full bg-gradient-to-tr from-primary to-purple-600 p-[2px] cursor-pointer shadow-lg hover:scale-105 transition-transform group"
+             title="Upload Profile Picture"
+           >
+             <div className="w-full h-full bg-slate-900 rounded-full flex items-center justify-center overflow-hidden relative">
+               {isUploadingAvatar ? (
+                 <Loader2 size={20} className="animate-spin text-white" />
+               ) : avatarUrl ? (
+                 <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+               ) : (
+                 <span className="text-white font-bold text-lg">{userName.charAt(0)}</span>
+               )}
+               {/* Hover Overlay for upload */}
+               <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                 <Upload size={16} className="text-white" />
+               </div>
              </div>
            </div>
         </div>
