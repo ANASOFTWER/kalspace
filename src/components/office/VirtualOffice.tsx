@@ -129,7 +129,7 @@ export default function VirtualOffice() {
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [zoomOrigin, setZoomOrigin] = useState<{ x: number; y: number }>({ x: 50, y: 50 });
   const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const isPanningRef = useRef(false);
+  const [isPanning, setIsPanning] = useState(false);
   const lastPanPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isNightMode, setIsNightMode] = useState<boolean>(false);
   const [isAudioAmbientOn, setIsAudioAmbientOn] = useState<boolean>(false);
@@ -926,21 +926,21 @@ export default function VirtualOffice() {
           onMouseDown={(e) => {
             // Start panning on middle-click or left-click when zoomed in
             if (e.button === 1 || (e.button === 0 && zoomLevel > 1.1)) {
-              isPanningRef.current = true;
+              setIsPanning(true);
               lastPanPosRef.current = { x: e.clientX, y: e.clientY };
               e.preventDefault();
             }
           }}
           onMouseMove={(e) => {
-            if (isPanningRef.current) {
+            if (isPanning) {
               const dx = e.clientX - lastPanPosRef.current.x;
               const dy = e.clientY - lastPanPosRef.current.y;
               lastPanPosRef.current = { x: e.clientX, y: e.clientY };
               setPanOffset(prev => ({ x: prev.x + dx, y: prev.y + dy }));
             }
           }}
-          onMouseUp={() => { isPanningRef.current = false; }}
-          onMouseLeave={() => { isPanningRef.current = false; }}
+          onMouseUp={() => { setIsPanning(false); }}
+          onMouseLeave={() => { setIsPanning(false); }}
           onContextMenu={(e) => e.preventDefault()}
         >
           {/* Main Map - scales to fill container, then zoom multiplies on top */}
@@ -957,7 +957,7 @@ export default function VirtualOffice() {
               left: '50%',
               transform: `translate(calc(-50% + ${panOffset.x}px), calc(-50% + ${panOffset.y}px)) scale(${baseScale * zoomLevel})`,
               transformOrigin: `${zoomOrigin.x}% ${zoomOrigin.y}%`,
-              transition: isPanningRef.current ? 'none' : 'transform 0.15s ease-out',
+              transition: isPanning ? 'none' : 'transform 0.15s ease-out',
               cursor: zoomLevel > 1.1 ? 'grab' : 'default',
             }}
           >
