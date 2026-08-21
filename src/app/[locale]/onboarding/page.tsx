@@ -152,7 +152,8 @@ export default function OnboardingPage({ params }: { params: Promise<{ locale: s
     localStorage.setItem('company_theme', theme);
     localStorage.setItem('company_size', size);
     localStorage.setItem('company_goal', goal);
-    localStorage.setItem('user_name', userEmail.split('@')[0]);
+    const existingName = localStorage.getItem('user_name');
+    localStorage.setItem('user_name', existingName || userEmail.split('@')[0]);
     localStorage.setItem('user_email', userEmail);
     localStorage.setItem('company_setup_completed', 'true');
 

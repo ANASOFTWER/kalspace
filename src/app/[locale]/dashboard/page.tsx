@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl';
 import LanguageSelector from '@/components/navigation/LanguageSelector';
 import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 
 export default function DashboardPage() {
   const t = useTranslations('nav'); // Reusing nav translations for some titles
@@ -11,11 +12,42 @@ export default function DashboardPage() {
   const [companyName, setCompanyName] = useState('شركة المستقبل للتقنية');
 
   useEffect(() => {
+    // 1. load local data first for fast render
     const savedUserName = localStorage.getItem('user_name');
     if (savedUserName) setUserName(savedUserName);
 
     const savedCompanyName = localStorage.getItem('company_name');
     if (savedCompanyName) setCompanyName(savedCompanyName);
+
+    // 2. Fetch fresh profile from Supabase to sync name and company name
+    const fetchProfile = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('full_name, company:companies(name)')
+            .eq('id', user.id)
+            .single();
+
+          if (profile) {
+            if (profile.full_name) {
+              setUserName(profile.full_name);
+              localStorage.setItem('user_name', profile.full_name);
+            }
+            const comp = profile.company as any;
+            if (comp && comp.name) {
+              setCompanyName(comp.name);
+              localStorage.setItem('company_name', comp.name);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching dashboard profile:', err);
+      }
+    };
+
+    fetchProfile();
   }, []);
 
   return (
