@@ -101,14 +101,14 @@ export default function SettingsPage() {
                      onChange={(e) => router.replace(pathname, { locale: e.target.value })}
                      className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-4 py-2.5 text-white outline-none focus:border-primary"
                    >
-                     <option value="ar">العربية (Arabic)</option>
-                     <option value="en">English (الإنجليزية)</option>
-                     <option value="fr">Français (French)</option>
-                     <option value="es">Español (Spanish)</option>
-                     <option value="de">Deutsch (German)</option>
-                     <option value="zh-CN">中文 (Chinese)</option>
-                     <option value="ja">日本語 (Japanese)</option>
-                     <option value="ko">한국어 (Korean)</option>
+                     <option value="ar" className="text-black bg-white dark:bg-slate-900 dark:text-white">العربية (Arabic)</option>
+                     <option value="en" className="text-black bg-white dark:bg-slate-900 dark:text-white">English (الإنجليزية)</option>
+                     <option value="fr" className="text-black bg-white dark:bg-slate-900 dark:text-white">Français (French)</option>
+                     <option value="es" className="text-black bg-white dark:bg-slate-900 dark:text-white">Español (Spanish)</option>
+                     <option value="de" className="text-black bg-white dark:bg-slate-900 dark:text-white">Deutsch (German)</option>
+                     <option value="zh-CN" className="text-black bg-white dark:bg-slate-900 dark:text-white">中文 (Chinese)</option>
+                     <option value="ja" className="text-black bg-white dark:bg-slate-900 dark:text-white">日本語 (Japanese)</option>
+                     <option value="ko" className="text-black bg-white dark:bg-slate-900 dark:text-white">한국어 (Korean)</option>
                    </select>
                 </div>
                 <p className="text-sm text-slate-400">ستتغير لغة الواجهة فور اختيارك. (The interface language will change immediately after selection.)</p>

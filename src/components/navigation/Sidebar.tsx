@@ -112,14 +112,14 @@ export default function Sidebar() {
             onChange={(e) => router.replace(pathname, { locale: e.target.value })}
             className="bg-transparent outline-none w-full cursor-pointer hover:text-white transition-colors"
           >
-            <option value="ar" className="bg-slate-900">العربية</option>
-            <option value="en" className="bg-slate-900">English</option>
-            <option value="fr" className="bg-slate-900">Français</option>
-            <option value="es" className="bg-slate-900">Español</option>
-            <option value="de" className="bg-slate-900">Deutsch</option>
-            <option value="zh-CN" className="bg-slate-900">中文</option>
-            <option value="ja" className="bg-slate-900">日本語</option>
-            <option value="ko" className="bg-slate-900">한국어</option>
+            <option value="ar" className="text-black bg-white dark:bg-slate-900 dark:text-white">العربية</option>
+            <option value="en" className="text-black bg-white dark:bg-slate-900 dark:text-white">English</option>
+            <option value="fr" className="text-black bg-white dark:bg-slate-900 dark:text-white">Français</option>
+            <option value="es" className="text-black bg-white dark:bg-slate-900 dark:text-white">Español</option>
+            <option value="de" className="text-black bg-white dark:bg-slate-900 dark:text-white">Deutsch</option>
+            <option value="zh-CN" className="text-black bg-white dark:bg-slate-900 dark:text-white">中文</option>
+            <option value="ja" className="text-black bg-white dark:bg-slate-900 dark:text-white">日本語</option>
+            <option value="ko" className="text-black bg-white dark:bg-slate-900 dark:text-white">한국어</option>
           </select>
         </div>
         <button 
