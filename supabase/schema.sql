@@ -298,3 +298,34 @@ with check (bucket_id = 'company-logos' and (select company_id from public.profi
 create policy "Users can update their company logo." 
 on storage.objects for update 
 using (bucket_id = 'company-logos' and (select company_id from public.profiles where id = auth.uid()) IS NOT NULL);
+
+-- ========================================================
+-- دالة آمنة للتحقق من رمز الدعوة للمستخدمين غير المسجلين
+-- ========================================================
+create or replace function public.verify_invitation(p_token uuid)
+returns json
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  result json;
+begin
+  select row_to_json(t) into result
+  from (
+    select 
+      i.id,
+      i.email,
+      i.role,
+      i.company_id,
+      i.status,
+      i.expires_at,
+      c.name as company_name
+    from public.invitations i
+    left join public.companies c on c.id = i.company_id
+    where i.token = p_token
+  ) t;
+  
+  return result;
+end;
+$$;

@@ -31,16 +31,18 @@ function SignupForm() {
 
       try {
         setLoading(true);
-        const { data, error } = await supabase
-          .from('invitations')
-          .select('*, companies(name)')
-          .eq('token', token)
-          .eq('status', 'pending')
-          .single();
+        const { data, error } = await supabase.rpc('verify_invitation', { p_token: token });
 
         if (error || !data) {
           setErrorMsg(
-            t('invalid_invitation') || 'رمز الدعوة غير صالح أو منتهي الصلاحية.'
+            t.has('invalid_invitation') ? t('invalid_invitation') : 'رمز الدعوة غير صالح أو منتهي الصلاحية.'
+          );
+          return;
+        }
+
+        if (data.status !== 'pending') {
+          setErrorMsg(
+            t.has('invalid_invitation') ? t('invalid_invitation') : 'رمز الدعوة غير صالح أو تم استخدامه.'
           );
           return;
         }
@@ -48,14 +50,14 @@ function SignupForm() {
         // Check if invitation is expired (e.g. older than 7 days)
         if (new Date(data.expires_at) < new Date()) {
           setErrorMsg(
-            t('invitation_expired') || 'انتهت صلاحية هذه الدعوة.'
+            t.has('invitation_expired') ? t('invitation_expired') : 'انتهت صلاحية هذه الدعوة.'
           );
           return;
         }
 
         setInvitation(data);
         setEmail(data.email); // Auto-fill invitee email
-        setCompanyName(data.companies?.name || ''); // Auto-fill company name
+        setCompanyName(data.company_name || ''); // Auto-fill company name
       } catch (err) {
         console.error('Error verifying invitation:', err);
         setErrorMsg('حدث خطأ أثناء التحقق من الدعوة.');
