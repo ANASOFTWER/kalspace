@@ -26,6 +26,11 @@ export default function DashboardPage() {
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
+  const [totalEmployees, setTotalEmployees] = useState<number>(0);
+  const [todayMeetings, setTodayMeetings] = useState<number>(0);
+  const [pendingTasks, setPendingTasks] = useState<number>(0);
+  const [attendanceRate, setAttendanceRate] = useState<string>('0%');
+
   useEffect(() => {
     // 1. load local data first for fast render
     const savedUserName = localStorage.getItem('user_name');
@@ -39,40 +44,61 @@ export default function DashboardPage() {
     const size = localStorage.getItem('office_size') || 'medium';
     setMapImage(`/images/office-maps/${theme}_${size}.png`);
 
-    // 2. Fetch fresh profile from Supabase to sync name, company name, and images
-    const fetchProfile = async () => {
+    // 2. Fetch fresh profile and stats from Supabase
+    const fetchProfileAndStats = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('full_name, avatar_url, company:companies(name, logo_url)')
-            .eq('id', user.id)
-            .single();
+        if (!user) return;
 
-          if (profile) {
-            if (profile.full_name) {
-              setUserName(profile.full_name);
-              localStorage.setItem('user_name', profile.full_name);
-            }
-            if (profile.avatar_url) setAvatarUrl(profile.avatar_url);
+        // Fetch Profile
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, avatar_url, company:companies(name, logo_url)')
+          .eq('id', user.id)
+          .single();
 
-            const comp = profile.company as any;
-            if (comp) {
-              if (comp.name) {
-                setCompanyName(comp.name);
-                localStorage.setItem('company_name', comp.name);
-              }
-              if (comp.logo_url) setLogoUrl(comp.logo_url);
+        if (profile) {
+          if (profile.full_name) {
+            setUserName(profile.full_name);
+            localStorage.setItem('user_name', profile.full_name);
+          }
+          if (profile.avatar_url) setAvatarUrl(profile.avatar_url);
+
+          const comp = profile.company as any;
+          if (comp) {
+            if (comp.name) {
+              setCompanyName(comp.name);
+              localStorage.setItem('company_name', comp.name);
             }
+            if (comp.logo_url) setLogoUrl(comp.logo_url);
           }
         }
+
+        // Fetch Dashboard Stats (Relies on RLS for company scoping)
+        const [
+          { count: empCount }, 
+          { count: tasksCount },
+          { count: meetingsCount },
+          { count: attendanceCount }
+        ] = await Promise.all([
+          supabase.from('profiles').select('id', { count: 'exact', head: true }),
+          supabase.from('tasks').select('id', { count: 'exact', head: true }).neq('status', 'done'),
+          supabase.from('meetings').select('id', { count: 'exact', head: true }).eq('date', new Date().toISOString().split('T')[0]),
+          supabase.from('attendance').select('id', { count: 'exact', head: true }).gte('created_at', new Date().toISOString().split('T')[0])
+        ]);
+
+        if (empCount !== null) setTotalEmployees(empCount);
+        if (tasksCount !== null) setPendingTasks(tasksCount);
+        if (meetingsCount !== null) setTodayMeetings(meetingsCount);
+        if (empCount && empCount > 0 && attendanceCount !== null) {
+          setAttendanceRate(`${Math.round((attendanceCount / empCount) * 100)}%`);
+        }
       } catch (err) {
-        console.error('Error fetching dashboard profile:', err);
+        console.error('Error fetching dashboard data:', err);
       }
     };
 
-    fetchProfile();
+    fetchProfileAndStats();
   }, []);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -140,10 +166,10 @@ export default function DashboardPage() {
   };
 
   const stats = [
-    { label: locale === 'ar' ? 'الموظفين المتصلين' : 'Employees Online', value: '12 / 24', color: 'from-blue-500/20 to-blue-500/5', iconColor: 'text-blue-400', glow: 'shadow-blue-500/20', Icon: Users },
-    { label: locale === 'ar' ? 'اجتماعات اليوم' : "Today's Meetings", value: '8', color: 'from-purple-500/20 to-purple-500/5', iconColor: 'text-purple-400', glow: 'shadow-purple-500/20', Icon: Calendar },
-    { label: locale === 'ar' ? 'مهام قيد الانتظار' : 'Pending Tasks', value: '14', color: 'from-amber-500/20 to-amber-500/5', iconColor: 'text-amber-400', glow: 'shadow-amber-500/20', Icon: CheckSquare },
-    { label: locale === 'ar' ? 'نسبة الحضور' : 'Attendance', value: '92%', color: 'from-emerald-500/20 to-emerald-500/5', iconColor: 'text-emerald-400', glow: 'shadow-emerald-500/20', Icon: Activity }
+    { label: locale === 'ar' ? 'الموظفين (Total)' : 'Total Employees', value: totalEmployees.toString(), color: 'from-blue-500/20 to-blue-500/5', iconColor: 'text-blue-400', glow: 'shadow-blue-500/20', Icon: Users },
+    { label: locale === 'ar' ? 'اجتماعات اليوم' : "Today's Meetings", value: todayMeetings.toString(), color: 'from-purple-500/20 to-purple-500/5', iconColor: 'text-purple-400', glow: 'shadow-purple-500/20', Icon: Calendar },
+    { label: locale === 'ar' ? 'مهام قيد الانتظار' : 'Pending Tasks', value: pendingTasks.toString(), color: 'from-amber-500/20 to-amber-500/5', iconColor: 'text-amber-400', glow: 'shadow-amber-500/20', Icon: CheckSquare },
+    { label: locale === 'ar' ? 'نسبة الحضور' : 'Attendance', value: attendanceRate, color: 'from-emerald-500/20 to-emerald-500/5', iconColor: 'text-emerald-400', glow: 'shadow-emerald-500/20', Icon: Activity }
   ];
 
   return (
