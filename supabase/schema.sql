@@ -112,17 +112,21 @@ alter table public.chat_messages enable row level security;
 
 -- ========================================================
 -- دالة جلب رقم الشركة بأمان لمنع الـ Infinite Recursion
--- (يجب أن يتم إنشاؤها بعد الجداول)
+-- (يتم إنشاؤها بعد الجداول وتستخدم PL/pgSQL لتفادي مشاكل الترتيب)
 -- ========================================================
 create or replace function public.get_auth_user_company_id()
 returns uuid
-language sql
+language plpgsql
 security definer
 set search_path = public
 as $$
-  select company_id from profiles where id = auth.uid();
+declare
+  comp_id uuid;
+begin
+  select company_id into comp_id from public.profiles where id = auth.uid();
+  return comp_id;
+end;
 $$;
-
 
 -- ========================================================
 -- سياسات الوصول (RLS Policies) باستخدام الدالة الآمنة
