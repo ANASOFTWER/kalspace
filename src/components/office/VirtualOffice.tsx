@@ -93,6 +93,7 @@ export default function VirtualOffice() {
   const [isPunchedIn, setIsPunchedIn] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [attendanceId, setAttendanceId] = useState<string | null>(null);
+  const [realtimeStatus, setRealtimeStatus] = useState<string>('connecting');
   // Interactive mini-features state
   const [stickyNotes, setStickyNotes] = useState<StickyNote[]>([]);
   const [newNoteText, setNewNoteText] = useState('');
@@ -441,6 +442,7 @@ export default function VirtualOffice() {
       })
       .subscribe(async (status) => {
         console.log('Presence Subscription Status:', status);
+        setRealtimeStatus(status);
         if (status === 'SUBSCRIBED') {
           setEmployees(currentEmployees => {
             const me = currentEmployees.find(emp => emp.id === loggedInUserId);
@@ -500,7 +502,7 @@ export default function VirtualOffice() {
     }, 100);
 
     return () => clearTimeout(timeout);
-  }, [currentUser, loggedInUserId]);
+  }, [currentUser?.x, currentUser?.y, loggedInUserId]);
 
   // Spatial Proximity Calculation for Private Bubble
   const spatialBubbleTarget = useMemo(() => {
@@ -1858,6 +1860,35 @@ export default function VirtualOffice() {
         >
           <ChevronDown size={24} />
         </button>
+      </div>
+
+      {/* ═══ DEBUG OVERLAY ═══ */}
+      <div className="absolute top-24 left-6 bg-slate-950/90 text-[10px] text-slate-300 p-4 rounded-2xl border border-white/10 z-50 space-y-1 max-w-[280px] pointer-events-auto shadow-2xl backdrop-blur-md">
+        <div className="font-extrabold text-white text-xs mb-2 border-b border-white/10 pb-1 flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
+          <span>🔍 معلومات المزامنة (Debug)</span>
+        </div>
+        <div>المستخدم: <span className="text-cyan-400 font-bold">{currentUser?.name} ({currentUser?.role})</span></div>
+        <div>رقم الشركة: <span className="text-slate-400 select-all font-mono">{companyId || 'غير متصل (NULL)'}</span></div>
+        <div>رقم الهوية: <span className="text-slate-400 select-all font-mono">{loggedInUserId}</span></div>
+        <div>حالة الشبكة: <span className={clsx(
+          "font-bold",
+          realtimeStatus === 'SUBSCRIBED' ? 'text-emerald-400' : 'text-amber-400'
+        )}>{realtimeStatus === 'SUBSCRIBED' ? 'متصل بنجاح (SUBSCRIBED)' : `جاري الاتصال... (${realtimeStatus})`}</span></div>
+        
+        <div className="pt-2 border-t border-white/5 mt-2">
+          <div className="font-bold text-white mb-1">المتصلون بالشركة:</div>
+          <ul className="space-y-1 list-disc list-inside max-h-24 overflow-y-auto pr-1">
+            {employees.filter(e => e.id !== loggedInUserId && e.id.length > 5).map(e => (
+              <li key={e.id} className="text-emerald-400 font-bold truncate">
+                {e.name}
+              </li>
+            ))}
+            {employees.filter(e => e.id !== loggedInUserId && e.id.length > 5).length === 0 && (
+              <li className="text-slate-500 italic">لا يوجد زملاء متصلين حالياً</li>
+            )}
+          </ul>
+        </div>
       </div>
 
     </div>
