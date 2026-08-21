@@ -91,7 +91,8 @@ export default function VirtualOffice() {
   const [activeInteractive, setActiveInteractive] = useState<string | null>(null);
   const [privateCallTargetId, setPrivateCallTargetId] = useState<string | null>(null);
   const [isPunchedIn, setIsPunchedIn] = useState(false);
-  
+  const [companyId, setCompanyId] = useState<string | null>(null);
+  const [attendanceId, setAttendanceId] = useState<string | null>(null);
   // Interactive mini-features state
   const [stickyNotes, setStickyNotes] = useState<StickyNote[]>([]);
   const [newNoteText, setNewNoteText] = useState('');
@@ -337,6 +338,21 @@ export default function VirtualOffice() {
             profileImage: profile.avatar_url
           };
           setLoggedInUserId(profile.id);
+          setCompanyId(profile.company_id);
+
+          // Check if user is currently punched in
+          const { data: activeAttendance } = await supabase
+            .from('attendance')
+            .select('id')
+            .eq('user_id', profile.id)
+            .eq('status', 'Working')
+            .is('check_out', null)
+            .single();
+            
+          if (activeAttendance) {
+            setIsPunchedIn(true);
+            setAttendanceId(activeAttendance.id);
+          }
         }
       }
 
@@ -790,7 +806,26 @@ export default function VirtualOffice() {
             {/* Clock-in / Clock-out (Employees Only) */}
             {!canEditMap && (
               <button 
-                onClick={() => setIsPunchedIn(!isPunchedIn)}
+                onClick={async () => {
+                  if (isPunchedIn && attendanceId) {
+                    // Clock out
+                    setIsPunchedIn(false);
+                    const { error } = await supabase
+                      .from('attendance')
+                      .update({ check_out: new Date().toISOString(), status: 'Completed' })
+                      .eq('id', attendanceId);
+                    if (!error) setAttendanceId(null);
+                  } else if (!isPunchedIn && companyId) {
+                    // Clock in
+                    setIsPunchedIn(true);
+                    const { data, error } = await supabase
+                      .from('attendance')
+                      .insert({ company_id: companyId, user_id: loggedInUserId, status: 'Working' })
+                      .select('id')
+                      .single();
+                    if (data && !error) setAttendanceId(data.id);
+                  }
+                }}
                 className={clsx(
                   "px-4 py-1.5 rounded-xl text-xs font-black transition-all border flex items-center gap-1.5 shadow-lg pointer-events-auto",
                   isPunchedIn 

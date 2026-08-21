@@ -13,6 +13,8 @@ interface DeptStat {
 
 export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
+  const [currentUserRole, setCurrentUserRole] = useState<string>('employee');
+  const [attendanceRecords, setAttendanceRecords] = useState<any[]>([]);
   
   const [productivity, setProductivity] = useState('0%');
   const [workHours, setWorkHours] = useState('0 ساعة');
@@ -29,6 +31,23 @@ export default function ReportsPage() {
   useEffect(() => {
     const fetchReports = async () => {
       try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
+          if (profile) {
+            setCurrentUserRole(profile.role);
+            // Fetch attendance if manager
+            if (['CEO', 'admin', 'manager', 'hr'].includes(profile.role)) {
+              const { data: attendanceData } = await supabase
+                .from('attendance')
+                .select('*, profiles(full_name, role)')
+                .order('check_in', { ascending: false })
+                .limit(20);
+              if (attendanceData) setAttendanceRecords(attendanceData);
+            }
+          }
+        }
+
         // 1. Productivity: Tasks done vs total
         const { count: totalTasks } = await supabase.from('tasks').select('*', { count: 'exact', head: true });
         const { count: doneTasks } = await supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('status', 'done');
@@ -146,6 +165,51 @@ export default function ReportsPage() {
                 ))}
              </div>
           </div>
+
+          {/* Attendance Log Table (Managers Only) */}
+          {['CEO', 'admin', 'manager', 'hr'].includes(currentUserRole) && (
+            <div className="glass-card rounded-2xl border border-white/5 overflow-hidden p-6 mt-8">
+              <h2 className="text-lg font-semibold text-white mb-6">سجل حضور وانصراف الموظفين</h2>
+              
+              {attendanceRecords.length === 0 ? (
+                <p className="text-slate-400 text-sm text-center py-6">لا يوجد سجلات حضور حتى الآن</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-right text-sm text-slate-300">
+                    <thead className="text-xs uppercase bg-slate-900/50 text-slate-400 border-b border-white/10">
+                      <tr>
+                        <th className="px-6 py-3 font-bold rounded-tr-lg">الموظف</th>
+                        <th className="px-6 py-3 font-bold">وقت الدخول</th>
+                        <th className="px-6 py-3 font-bold">وقت الخروج</th>
+                        <th className="px-6 py-3 font-bold rounded-tl-lg">الحالة</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {attendanceRecords.map((record, idx) => (
+                        <tr key={record.id} className={clsx("border-b border-white/5 hover:bg-white/5 transition-colors", idx === attendanceRecords.length - 1 ? "border-0" : "")}>
+                          <td className="px-6 py-4">
+                            <div className="font-bold text-white">{record.profiles?.full_name || 'غير معروف'}</div>
+                            <div className="text-[10px] text-cyan-400">{record.profiles?.role}</div>
+                          </td>
+                          <td className="px-6 py-4 font-mono text-xs">
+                            {new Date(record.check_in).toLocaleString('ar-SA')}
+                          </td>
+                          <td className="px-6 py-4 font-mono text-xs">
+                            {record.check_out ? new Date(record.check_out).toLocaleString('ar-SA') : '-'}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={clsx("px-2.5 py-1 text-xs font-bold rounded-lg border", record.status === 'Working' ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-slate-800 text-slate-400 border-slate-700")}>
+                              {record.status === 'Working' ? 'على رأس العمل 🟢' : 'أنهى الدوام 🔴'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
     </div>
