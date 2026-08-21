@@ -166,6 +166,9 @@ create policy "Anyone can create a company" on public.companies
 create policy "Users can view profiles in the same company" on public.profiles
   for select using (company_id = public.get_auth_user_company_id());
 
+create policy "Users can view their own profile" on public.profiles
+  for select using (id = auth.uid());
+
 create policy "Users can update their own profile" on public.profiles
   for update using (id = auth.uid());
 

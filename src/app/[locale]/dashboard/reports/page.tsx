@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { BarChart3, TrendingUp, Users, Calendar, Clock, Loader2 } from 'lucide-react';
+import clsx from 'clsx';
 
 interface DeptStat {
   name: string;
