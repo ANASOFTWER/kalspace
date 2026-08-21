@@ -402,8 +402,12 @@ export default function VirtualOffice() {
 
   // Supabase Realtime Presence Sync
   useEffect(() => {
-    if (!companyId || loggedInUserId === 'loading') return;
+    if (!companyId || loggedInUserId === 'loading') {
+      console.log('Presence: companyId or loggedInUserId not ready yet', { companyId, loggedInUserId });
+      return;
+    }
 
+    console.log('Presence: Initializing channel for company', companyId);
     const channel = supabase.channel(`office_presence_${companyId}`, {
       config: {
         presence: {
@@ -417,6 +421,7 @@ export default function VirtualOffice() {
     channel
       .on('presence', { event: 'sync' }, () => {
         const newState = channel.presenceState();
+        console.log('Presence Sync Event: Received new presence state', newState);
         const onlineUsers: Employee[] = [];
         
         Object.keys(newState).forEach(key => {
@@ -428,24 +433,28 @@ export default function VirtualOffice() {
           }
         });
 
+        console.log('Presence Sync: Active online users (excluding self)', onlineUsers);
         setEmployees(prev => {
-           // Keep the logged-in user, and mock users, but update the realtime users
-           const prevLocal = prev.filter(emp => emp.id === loggedInUserId || emp.id.length < 5); // Mock users usually have id '1', '2' etc.
+           const prevLocal = prev.filter(emp => emp.id === loggedInUserId || emp.id.length < 5);
            return [...prevLocal, ...onlineUsers];
         });
       })
       .subscribe(async (status) => {
+        console.log('Presence Subscription Status:', status);
         if (status === 'SUBSCRIBED') {
-          // Once subscribed, broadcast our initial position
           setEmployees(currentEmployees => {
             const me = currentEmployees.find(emp => emp.id === loggedInUserId);
-            if (me) channel.track(me);
+            if (me) {
+              console.log('Presence: Tracking self on subscribe', me);
+              channel.track(me);
+            }
             return currentEmployees;
           });
         }
       });
 
     return () => {
+      console.log('Presence: Unsubscribing channel');
       channel.unsubscribe();
       channelRef.current = null;
     };
@@ -486,6 +495,7 @@ export default function VirtualOffice() {
     
     // Use a small debounce/throttle to avoid spamming the websocket
     const timeout = setTimeout(() => {
+      console.log('Presence: Broadcasting coordinates update', { x: currentUser.x, y: currentUser.y });
       channelRef.current.track(currentUser);
     }, 100);
 
