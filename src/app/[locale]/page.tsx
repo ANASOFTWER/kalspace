@@ -38,25 +38,27 @@ function RevealSection({ children, className = '', delay = 0 }: { children: Reac
 function AnimCounter({ target, suffix = '', duration = 2000 }: { target: number; suffix?: string; duration?: number }) {
   const [count, setCount] = useState(0);
   const [started, setStarted] = useState(false);
-  const ref = useRef<HTMLSpanElement>(null);
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true });
+
   useEffect(() => {
-    const observer = new IntersectionObserver(([e]) => { if (e.isIntersecting) setStarted(true); }, { threshold: 0.3 });
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, []);
-  useEffect(() => {
-    if (!started) return;
-    let s = 0;
-    const step = target / (duration / 16);
-    const id = setInterval(() => { s += step; if (s >= target) { setCount(target); clearInterval(id); } else setCount(Math.floor(s)); }, 16);
-    return () => clearInterval(id);
-  }, [started, target, duration]);
-  return <span ref={ref}>{String(count)}{suffix}</span>;
+    if (isInView && !started) {
+      setStarted(true);
+      const steps = 60;
+      const increment = target / steps;
+      let current = 0;
+      const timer = setInterval(() => {
+        current += increment;
+        if (current >= target) { setCount(target); clearInterval(timer); }
+        else setCount(Math.floor(current));
+      }, duration / steps);
+      return () => clearInterval(timer);
+    }
+  }, [isInView, started, target, duration]);
+
+  return <span ref={ref}>{count}{suffix}</span>;
 }
 
-/* ═══════════════════════════════════════════════════════
-   MAIN LANDING PAGE
-   ═══════════════════════════════════════════════════════ */
 export default function LandingPage() {
   const t = useTranslations('landing');
   const tAuth = useTranslations('auth');
@@ -67,27 +69,27 @@ export default function LandingPage() {
   const [activeFeature, setActiveFeature] = useState(0);
   const features = [
     { 
-      title: 'صوت فضائي ثلاثي الأبعاد', 
-      subtitle: 'اسمع كما لو كنت هناك',
-      desc: 'تقنية الصوت الفضائي تجعل المحادثات تبدو طبيعية تماماً. كلما اقتربت من زميلك في المكتب الافتراضي، يزداد وضوح صوته تدريجياً — تماماً كما يحدث في المكتب الحقيقي. لا حاجة لروابط اجتماعات أو غرف منفصلة.',
+      title: t('feature1_title'), 
+      subtitle: t('feature1_subtitle'),
+      desc: t('feature1_desc'),
       img: '/spatial-audio.jpg',
       color: 'from-cyan-500 to-blue-600',
       accent: 'text-cyan-300 font-bold',
       bgAccent: 'bg-cyan-500/10',
     },
     { 
-      title: 'خصوصية مطلقة ومشفرة', 
-      subtitle: 'حمايتك أولويتنا',
-      desc: 'مناطق خصوصية ذكية تغلق الكاميرا والمايك تلقائياً. فقاعات تواصل مشفرة من طرف إلى طرف لا يمكن لأي شخص خارجها سماع أو قراءة محتواها. حماية على مستوى المؤسسات مع SSO و SOC 2 و GDPR.',
+      title: t('feature2_title'), 
+      subtitle: t('feature2_subtitle'),
+      desc: t('feature2_desc'),
       img: '/privacy-shield.jpg',
       color: 'from-purple-500 to-violet-600',
       accent: 'text-purple-300 font-bold',
       bgAccent: 'bg-purple-500/10',
     },
     { 
-      title: 'تعاون فريق حقيقي', 
-      subtitle: 'أكثر من مجرد اجتماعات',
-      desc: 'غرف اجتماعات بشاشات عرض مشتركة، سبورات تفاعلية، ومحطات عمل مدمج فيها مؤقت تركيز Pomodoro وقوائم مهام ذكية. كل شيء في مكان واحد بدون التنقل بين تطبيقات.',
+      title: t('feature3_title'), 
+      subtitle: t('feature3_subtitle'),
+      desc: t('feature3_desc'),
       img: '/team-collab.jpg',
       color: 'from-violet-500 to-indigo-600',
       accent: 'text-violet-300 font-bold',
@@ -104,9 +106,9 @@ export default function LandingPage() {
   // Testimonials
   const [testIdx, setTestIdx] = useState(0);
   const testimonials = [
-    { name: 'محمد العتيبي', role: 'CEO، شركة التقنية المتقدمة', text: 'Kalspace غيّر طريقة تواصلنا كفريق عن بعد بالكامل. الصوت الفضائي والفقاعات الخاصة أعطونا شعور حقيقي بالتواجد معاً. إنتاجيتنا ارتفعت 40% خلال شهر واحد.', stars: 5, avatar: '👨‍💼' },
-    { name: 'لينا الشمري', role: 'مديرة HR، مجموعة الابتكار', text: 'ميزة خصوصية المساحات الحساسة والمحطات التفاعلية جعلت الموظفين يشعرون بالراحة والإنتاجية. أفضل استثمار عملناه للعمل عن بعد.', stars: 5, avatar: '👩‍💻' },
-    { name: 'فيصل المالكي', role: 'CTO، استوديو الألعاب', text: 'أخيراً منصة تجمع بين المتعة والعمل الجاد. الألعاب المصغرة وصالة الاستراحة أضافت روحاً لفريقنا المتفرق حول العالم.', stars: 5, avatar: '👨‍🔬' },
+    { name: t('testimonial1_name'), role: t('testimonial1_role'), text: t('testimonial1_text'), stars: 5, avatar: '👨‍💼' },
+    { name: t('testimonial2_name'), role: t('testimonial2_role'), text: t('testimonial2_text'), stars: 5, avatar: '👩‍💻' },
+    { name: t('testimonial3_name'), role: t('testimonial3_role'), text: t('testimonial3_text'), stars: 5, avatar: '👨‍🔬' },
   ];
   useEffect(() => {
     const id = setInterval(() => setTestIdx(p => (p + 1) % testimonials.length), 6000);
@@ -116,11 +118,11 @@ export default function LandingPage() {
   // FAQ
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
   const faqs = [
-    { q: 'هل Kalspace مجاني؟', a: 'نعم! نقدم باقة مجانية تتضمن حتى 10 مستخدمين مع جميع الميزات الأساسية. لا نحتاج بطاقة ائتمان للبدء.' },
-    { q: 'كيف يعمل الصوت الفضائي؟', a: 'كلما اقتربت شخصيتك من زميلك في خريطة المكتب، يزداد وضوح الصوت بينكما تلقائياً وتدريجياً. ابتعد وينخفض. بالضبط كالواقع — لا حاجة لروابط أو غرف.' },
-    { q: 'هل البيانات مشفرة؟', a: 'جميع المكالمات والرسائل مشفرة بتقنية WebRTC من طرف إلى طرف (E2E). نلتزم بمعايير SOC 2 و GDPR لحماية بيانات مؤسستك.' },
-    { q: 'هل يمكنني تخصيص المكتب؟', a: 'بالكامل! ابنِ مكتبك من الصفر — أضف أثاثاً، اختر ديكوراً، عيّن أقساماً، وخصص كل تفصيلة تناسب ثقافة شركتك.' },
-    { q: 'ما الأجهزة المدعومة؟', a: 'يعمل على جميع المتصفحات الحديثة بدون تحميل. متاح أيضاً كتطبيق سطح مكتب لـ Windows و Mac. تطبيق الهاتف قيد التطوير.' },
+    { q: t('faq1_q'), a: t('faq1_a') },
+    { q: t('faq2_q'), a: t('faq2_a') },
+    { q: t('faq3_q'), a: t('faq3_a') },
+    { q: t('faq4_q'), a: t('faq4_a') },
+    { q: t('faq5_q'), a: t('faq5_a') },
   ];
 
   return (
@@ -149,10 +151,10 @@ export default function LandingPage() {
               <span className="font-extrabold text-base tracking-tight text-white">Kalspace</span>
             </div>
             <nav className="hidden md:flex items-center gap-10 text-sm text-slate-200 font-semibold">
-              <a href="#features" className="hover:text-cyan-400 transition-colors duration-300">الميزات</a>
-              <a href="#how" className="hover:text-cyan-400 transition-colors duration-300">كيف يعمل</a>
-              <a href="#security" className="hover:text-cyan-400 transition-colors duration-300">الأمان</a>
-              <a href="#pricing" className="hover:text-cyan-400 transition-colors duration-300">الأسعار</a>
+              <a href="#features" className="hover:text-cyan-400 transition-colors duration-300">{t('nav_features')}</a>
+              <a href="#how" className="hover:text-cyan-400 transition-colors duration-300">{t('nav_how')}</a>
+              <a href="#security" className="hover:text-cyan-400 transition-colors duration-300">{t('nav_security')}</a>
+              <a href="#pricing" className="hover:text-cyan-400 transition-colors duration-300">{t('nav_pricing')}</a>
             </nav>
             <div className="flex items-center gap-4">
               <LanguageSelector />
@@ -175,7 +177,7 @@ export default function LandingPage() {
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}
               className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-blue-500/30 bg-blue-500/10 text-xs font-bold text-blue-300 shadow-lg">
               <Sparkles className="w-4 h-4 text-cyan-400 animate-pulse" />
-              المنصة #1 للمكاتب الافتراضية — أكثر من 10,000 فريق يستخدمونها
+              {t('chip')}
             </motion.div>
 
             {/* Headline */}
@@ -200,7 +202,7 @@ export default function LandingPage() {
               </Link>
               <a href="#features"
                 className="w-full sm:w-auto px-8 py-4 border border-white/20 bg-white/5 hover:bg-white/10 text-white rounded-xl font-bold text-base transition-all flex items-center justify-center gap-2 shadow-lg">
-                <Play className="w-4 h-4 text-cyan-400 fill-cyan-400" /> اكتشف الميزات
+                <Play className="w-4 h-4 text-cyan-400 fill-cyan-400" /> {t('discover_features')}
               </a>
             </motion.div>
           </div>
@@ -220,7 +222,7 @@ export default function LandingPage() {
               {/* Bottom label */}
               <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-black/80 backdrop-blur-xl border border-white/20 text-xs font-bold text-white shadow-2xl">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_10px_#34d399]" />
-                مكتب افتراضي حي ثلاثي الأبعاد — 23 موظف متصل الآن
+                {t('hero_label')}
               </div>
             </div>
           </motion.div>
@@ -228,7 +230,7 @@ export default function LandingPage() {
 
         {/* ═══ SECTION 2: LOGO TICKER ═══ */}
         <section className="py-16 border-y border-white/10 bg-white/[0.01]">
-          <p className="text-center text-xs font-bold text-slate-300 uppercase tracking-[0.25em] mb-10">تثق بنا فرق العمل في أفضل الشركات العالمية</p>
+          <p className="text-center text-xs font-bold text-slate-300 uppercase tracking-[0.25em] mb-10">{t('trusted_by')}</p>
           <div className="relative overflow-hidden">
             <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-l from-transparent to-[#050510] z-10" />
             <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-r from-transparent to-[#050510] z-10" />
@@ -249,11 +251,11 @@ export default function LandingPage() {
           <div className="max-w-7xl mx-auto">
             <RevealSection>
               <div className="text-center mb-20 space-y-5">
-                <p className="text-xs font-extrabold text-cyan-400 uppercase tracking-[0.25em]">الميزات الرئيسية</p>
+                <p className="text-xs font-extrabold text-cyan-400 uppercase tracking-[0.25em]">{t('features_label')}</p>
                 <h2 className="text-[clamp(2.2rem,4.5vw,3.6rem)] font-black tracking-tight leading-[1.1] text-white">
-                  ليست مجرد مكالمات فيديو.
+                  {t('features_title')}
                   <br />
-                  <span className="text-slate-400">بل تجربة مكتبية متكاملة.</span>
+                  <span className="text-slate-400">{t('features_title2')}</span>
                 </h2>
               </div>
             </RevealSection>
@@ -319,19 +321,19 @@ export default function LandingPage() {
           <div className="max-w-6xl mx-auto relative">
             <RevealSection>
               <div className="text-center mb-20 space-y-5">
-                <p className="text-xs font-extrabold text-emerald-400 uppercase tracking-[0.25em]">كيف يعمل</p>
+                <p className="text-xs font-extrabold text-emerald-400 uppercase tracking-[0.25em]">{t('how_label')}</p>
                 <h2 className="text-[clamp(2.2rem,4.5vw,3.6rem)] font-black tracking-tight text-white">
-                  ابدأ خلال 3 دقائق فقط.
+                  {t('how_title')}
                 </h2>
-                <p className="text-slate-300 text-lg max-w-lg mx-auto">لا تحتاج تثبيت أي برامج معقدة. افتح المتصفح وابدأ العمل.</p>
+                <p className="text-slate-300 text-lg max-w-lg mx-auto">{t('how_subtitle')}</p>
               </div>
             </RevealSection>
 
             <div className="grid md:grid-cols-3 gap-8">
               {[
-                { step: '01', title: 'أنشئ مقر شركتك', desc: 'سجّل واختر تصميم مكتبك من القوالب ثلاثية الأبعاد الجاهزة أو ابنِه من الصفر. أضف مكاتب، غرف اجتماعات، وصالات ترفيه.', icon: '🏢' },
-                { step: '02', title: 'ادعُ فريقك بضغطة زر', desc: 'شارك رابط الدعوة المباشر أو أرسل دعوات فورية عبر البريد الإلكتروني. ينضم فريقك مباشرة بدون تحميل.', icon: '👥' },
-                { step: '03', title: 'ابدأ العمل والتعاون', desc: 'تحرّك في أرجاء المكتب، تحدّث مع زملائك بالصوت الفضائي الطبيعي، واستخدم محطات العمل الذكية.', icon: '🚀' },
+                { step: '01', title: t('step1_title'), desc: t('step1_desc'), icon: '🏢' },
+                { step: '02', title: t('step2_title'), desc: t('step2_desc'), icon: '👥' },
+                { step: '03', title: t('step3_title'), desc: t('step3_desc'), icon: '🚀' },
               ].map((s, i) => (
                 <RevealSection key={i} delay={i * 0.15}>
                   <div className="relative p-8 rounded-2xl border border-white/10 bg-white/[0.03] hover:border-cyan-500/40 hover:bg-white/[0.06] transition-all duration-500 group shadow-lg">
@@ -356,10 +358,9 @@ export default function LandingPage() {
               <div className="absolute inset-0 bg-gradient-to-t from-[#050510] via-[#050510]/30 to-transparent" />
               <div className="absolute bottom-0 left-0 right-0 p-12">
                 <div className="max-w-2xl mr-auto text-right">
-                  <h3 className="text-3xl md:text-4xl font-black mb-4 tracking-tight text-white">مقر شركة متكامل في شاشتك</h3>
+                  <h3 className="text-3xl md:text-4xl font-black mb-4 tracking-tight text-white">{t('office_overview_title')}</h3>
                   <p className="text-slate-200 text-base leading-[1.8]">
-                    خريطة تفاعلية بالكامل — أقسام، غرف اجتماعات، صالة استراحة وألعاب، ودورة مياه ذكية. 
-                    كل عنصر فيها قابل للتفاعل والتخصيص ليناسب احتياجك وفريقك.
+                    {t('office_overview_desc')}
                   </p>
                 </div>
               </div>
@@ -372,18 +373,18 @@ export default function LandingPage() {
           <div className="max-w-6xl mx-auto">
             <RevealSection>
               <div className="text-center mb-20 space-y-5">
-                <p className="text-xs font-extrabold text-amber-400 uppercase tracking-[0.25em]">الأمان والامتثال</p>
+                <p className="text-xs font-extrabold text-amber-400 uppercase tracking-[0.25em]">{t('security_label')}</p>
                 <h2 className="text-[clamp(2.2rem,4.5vw,3.6rem)] font-black tracking-tight text-white">
-                  أمان لا يقبل أي مساومة.
+                  {t('security_title')}
                 </h2>
               </div>
             </RevealSection>
 
             <div className="grid md:grid-cols-3 gap-6">
               {[
-                { icon: Shield, title: 'تشفير شامل E2E', desc: 'جميع المكالمات والرسائل مشفرة من طرف إلى طرف بتقنية WebRTC المتطورة. لا يمكن لأي جهة ثالثة الوصول إليها.', gradient: 'from-emerald-500/15 to-transparent' },
-                { icon: Fingerprint, title: 'تسجيل دخول موحد SSO', desc: 'ادمج مع Google Workspace أو Microsoft Azure AD أو Okta لتسجيل دخول آمن وسلس لجميع الموظفين.', gradient: 'from-blue-500/15 to-transparent' },
-                { icon: Lock, title: 'معايير SOC 2 و GDPR', desc: 'نلتزم بأعلى معايير حماية البيانات والخصوصية العالمية. بياناتك مخزنة بأمان في مراكز بيانات معتمدة.', gradient: 'from-purple-500/15 to-transparent' },
+                { icon: Shield, title: t('security1_title'), desc: t('security1_desc'), gradient: 'from-emerald-500/15 to-transparent' },
+                { icon: Fingerprint, title: t('security2_title'), desc: t('security2_desc'), gradient: 'from-blue-500/15 to-transparent' },
+                { icon: Lock, title: t('security3_title'), desc: t('security3_desc'), gradient: 'from-purple-500/15 to-transparent' },
               ].map((s, i) => (
                 <RevealSection key={i} delay={i * 0.1}>
                   <div className={`p-8 rounded-2xl border border-white/10 bg-gradient-to-b ${s.gradient} hover:border-white/20 transition-all duration-500 space-y-5 shadow-lg`}>
@@ -401,10 +402,10 @@ export default function LandingPage() {
         <section className="py-24 px-6 border-y border-white/10 bg-white/[0.01]">
           <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-12">
             {[
-              { target: 10000, suffix: '+', label: 'مستخدم نشط يومياً', color: 'text-white' },
-              { target: 50, suffix: '+', label: 'دولة حول العالم', color: 'text-white' },
-              { target: 99, suffix: '.9%', label: 'وقت تشغيل مضمون', color: 'text-white' },
-              { target: 24, suffix: '/7', label: 'دعم فني مستمر', color: 'text-white' },
+              { target: 10000, suffix: '+', label: t('stat_users'), color: 'text-white' },
+              { target: 50, suffix: '+', label: t('stat_countries'), color: 'text-white' },
+              { target: 99, suffix: '.9%', label: t('stat_uptime'), color: 'text-white' },
+              { target: 24, suffix: '/7', label: t('stat_support'), color: 'text-white' },
             ].map((s, i) => (
               <RevealSection key={i} delay={i * 0.1} className="text-center">
                 <div className={`text-[clamp(2.2rem,5vw,3.8rem)] font-black ${s.color} tracking-tight`}>
@@ -421,9 +422,9 @@ export default function LandingPage() {
           <div className="max-w-4xl mx-auto">
             <RevealSection>
               <div className="text-center mb-16 space-y-5">
-                <p className="text-xs font-extrabold text-cyan-400 uppercase tracking-[0.25em]">آراء العملاء</p>
+                <p className="text-xs font-extrabold text-cyan-400 uppercase tracking-[0.25em]">{t('testimonials_label')}</p>
                 <h2 className="text-[clamp(2rem,3.5vw,2.8rem)] font-black tracking-tight text-white">
-                  فرق حقيقية. نتائج مذهلة.
+                  {t('testimonials_title')}
                 </h2>
               </div>
             </RevealSection>
@@ -465,7 +466,7 @@ export default function LandingPage() {
           <div className="max-w-3xl mx-auto">
             <RevealSection>
               <div className="text-center mb-16 space-y-5">
-                <h2 className="text-[clamp(2rem,3.5vw,2.8rem)] font-black tracking-tight text-white">الأسئلة الشائعة</h2>
+                <h2 className="text-[clamp(2rem,3.5vw,2.8rem)] font-black tracking-tight text-white">{t('faq_title')}</h2>
               </div>
             </RevealSection>
 
@@ -501,10 +502,10 @@ export default function LandingPage() {
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-blue-600/10 rounded-full blur-[100px]" />
               <div className="relative space-y-8">
                 <h2 className="text-[clamp(2.2rem,5vw,4.2rem)] font-black tracking-tight leading-[1.1] text-white">
-                  جاهز لتجربة مقر افتراضي يبهر فريقك؟
+                  {t('cta_title')}
                 </h2>
                 <p className="text-slate-200 text-lg max-w-xl mx-auto leading-[1.8]">
-                  انضم لآلاف الفرق التي تعمل بإنتاجية أعلى وتواصل أفضل. مجاناً للبدء — بدون بطاقة ائتمان.
+                  {t('cta_desc')}
                 </p>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
                   <Link href="/signup"
@@ -530,13 +531,13 @@ export default function LandingPage() {
                 <span className="font-extrabold text-base text-white">Kalspace</span>
               </div>
               <p className="text-sm text-slate-300 leading-[1.9] max-w-xs">
-                المنصة الأولى للمكاتب الافتراضية التفاعلية. صُممت لتجعل العمل عن بعد أكثر إنتاجية وإنسانية وتواصلاً.
+                {t('footer_desc')}
               </p>
             </div>
             {[
-              { title: 'المنتج', links: ['المكتب الافتراضي', 'الصوت الفضائي', 'الدردشة', 'غرف الاجتماعات'] },
-              { title: 'الشركة', links: ['من نحن', 'المدونة', 'الوظائف', 'تواصل معنا'] },
-              { title: 'القانوني', links: ['الخصوصية', 'الشروط', 'الأمان', 'GDPR'] },
+              { title: t('footer_product'), links: [t('footer_virtual_office'), t('footer_spatial_audio'), t('footer_chat'), t('footer_meeting_rooms')] },
+              { title: t('footer_company'), links: [t('footer_about'), t('footer_blog'), t('footer_careers'), t('footer_contact')] },
+              { title: t('footer_legal'), links: [t('footer_privacy'), t('footer_terms'), t('footer_security'), 'GDPR'] },
             ].map((col, i) => (
               <div key={i}>
                 <h4 className="text-xs font-bold text-white mb-5 uppercase tracking-wider">{col.title}</h4>
@@ -549,7 +550,7 @@ export default function LandingPage() {
             ))}
           </div>
           <div className="max-w-6xl mx-auto mt-12 pt-6 border-t border-white/10 text-center text-xs text-slate-400">
-            © 2026 Kalspace. جميع الحقوق محفوظة.
+            {t('footer_copyright')}
           </div>
         </footer>
 
