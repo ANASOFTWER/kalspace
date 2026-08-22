@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Noto_Sans_Arabic } from "next/font/google";
 import { NextIntlClientProvider } from 'next-intl';
-import { getMessages } from 'next-intl/server';
+import { getMessages, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { routing } from '@/i18n/routing';
 import "../globals.css";
@@ -13,6 +13,10 @@ export const metadata: Metadata = {
   title: "Kalspace - Your Real Office, Anywhere",
   description: "A complete digital headquarters for remote and hybrid teams.",
 };
+
+export function generateStaticParams() {
+  return routing.locales.map((locale) => ({ locale }));
+}
 
 export default async function RootLayout({
   children,
@@ -27,6 +31,9 @@ export default async function RootLayout({
     notFound();
   }
 
+  // Enable static rendering
+  setRequestLocale(locale);
+
   const messages = await getMessages();
 
   // Arabic gets RTL and specific font
@@ -36,7 +43,7 @@ export default async function RootLayout({
   return (
     <html lang={locale} dir={dir} className={`${fontClass} h-full antialiased dark`}>
       <body className="min-h-full flex flex-col bg-[#050816] text-slate-100 font-sans">
-        <NextIntlClientProvider messages={messages}>
+        <NextIntlClientProvider locale={locale} messages={messages}>
           {children}
         </NextIntlClientProvider>
       </body>
