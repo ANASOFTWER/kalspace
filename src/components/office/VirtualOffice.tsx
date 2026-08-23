@@ -652,7 +652,7 @@ export default function VirtualOffice() {
     x: 80,
     y: 120,
   };
-  const canEditMap = currentUser?.role === 'CEO';
+  const canEditMap = currentUser?.role === 'CEO' || currentUser?.role === 'admin' || currentUser?.role === 'manager';
   const canInviteTeam = currentUser?.role === 'CEO' || currentUser?.role === 'hr' || currentUser?.role === 'admin' || currentUser?.department === 'HR';
 
   // Broadcast our movement
