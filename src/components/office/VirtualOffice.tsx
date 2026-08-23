@@ -845,20 +845,28 @@ export default function VirtualOffice() {
       })
       .on('broadcast', { event: 'private_call_invite' }, (payload) => {
         const call = payload.payload;
+        console.log('Realtime: Received private_call_invite event', call, 'Current loggedInUserId:', loggedInUserId);
         if (call.to === loggedInUserId) {
+          console.log('Realtime: Call is for me! Setting incomingCall state.');
           setIncomingCall({ from: call.from, fromName: call.fromName });
+        } else {
+          console.log('Realtime: Call is not for me. Ignored.');
         }
       })
       .on('broadcast', { event: 'private_call_accept' }, (payload) => {
         const call = payload.payload;
+        console.log('Realtime: Received private_call_accept event', call, 'Current loggedInUserId:', loggedInUserId);
         if (call.to === loggedInUserId) {
+          console.log('Realtime: Call accepted! Activating call screen.');
           setCallActive(true);
           setIncomingCall(null);
         }
       })
       .on('broadcast', { event: 'private_call_end' }, (payload) => {
         const call = payload.payload;
+        console.log('Realtime: Received private_call_end event', call, 'Current loggedInUserId:', loggedInUserId);
         if (call.to === loggedInUserId || call.from === loggedInUserId) {
+          console.log('Realtime: Call ended. Resetting states.');
           setCallActive(false);
           setPrivateCallTargetId(null);
           setIncomingCall(null);
@@ -1306,13 +1314,26 @@ export default function VirtualOffice() {
   };
 
   const startPrivateCall = (targetId: string) => {
-    if (!channelRef.current) return;
+    console.log('Realtime: startPrivateCall triggered for targetId:', targetId);
+    if (!channelRef.current) {
+      console.error('Realtime: Cannot start call, channelRef.current is null');
+      return;
+    }
     const target = employees.find(emp => emp.id === targetId);
-    if (!target) return;
+    if (!target) {
+      console.error('Realtime: Cannot start call, target employee not found in local state list');
+      return;
+    }
 
     setPrivateCallTargetId(targetId);
     setCallActive(false);
     setIncomingCall(null);
+
+    console.log('Realtime: Sending private_call_invite broadcast via channel', {
+      from: loggedInUserId,
+      fromName: currentUser?.name || 'زميلك',
+      to: targetId
+    });
 
     channelRef.current.send({
       type: 'broadcast',
@@ -1322,15 +1343,28 @@ export default function VirtualOffice() {
         fromName: currentUser?.name || 'زميلك',
         to: targetId
       }
+    }).then((status: string) => {
+      console.log('Realtime: private_call_invite broadcast status:', status);
+    }).catch((err: any) => {
+      console.error('Realtime: Failed to send private_call_invite:', err);
     });
   };
 
   const acceptPrivateCall = () => {
-    if (!incomingCall || !channelRef.current) return;
+    console.log('Realtime: acceptPrivateCall triggered');
+    if (!incomingCall || !channelRef.current) {
+      console.error('Realtime: Cannot accept call, incomingCall or channelRef.current is null', { incomingCall });
+      return;
+    }
     
     setPrivateCallTargetId(incomingCall.from);
     setCallActive(true);
     setIncomingCall(null);
+
+    console.log('Realtime: Sending private_call_accept broadcast', {
+      from: loggedInUserId,
+      to: incomingCall.from
+    });
 
     channelRef.current.send({
       type: 'broadcast',
@@ -1339,6 +1373,10 @@ export default function VirtualOffice() {
         from: loggedInUserId,
         to: incomingCall.from
       }
+    }).then((status: string) => {
+      console.log('Realtime: private_call_accept broadcast status:', status);
+    }).catch((err: any) => {
+      console.error('Realtime: Failed to send private_call_accept:', err);
     });
   };
 
