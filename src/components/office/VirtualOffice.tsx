@@ -402,6 +402,13 @@ export default function VirtualOffice() {
         setSidebarOpen(true);
         setSidebarTab('chat');
         setDefaultMessageTarget(chatWith);
+        
+        // Clear chatWith from URL to prevent loop
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('chatWith');
+          window.history.replaceState({}, '', url.pathname + url.search);
+        }
       }
     }
   }, [chatWith, employees]);
@@ -411,6 +418,13 @@ export default function VirtualOffice() {
       const emp = employees.find(e => e.id === callWith);
       if (emp) {
         startPrivateCall(callWith);
+        
+        // Clear callWith from URL to prevent loop
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('callWith');
+          window.history.replaceState({}, '', url.pathname + url.search);
+        }
       }
     }
   }, [callWith, employees, realCompanyId]);
