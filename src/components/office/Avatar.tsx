@@ -87,20 +87,7 @@ export default function Avatar({
     };
   }, [isCurrentUser, videoOn]);
 
-  // Periodic random interactive reaction floating emojis to make the office feel alive
-  useEffect(() => {
-    if (employee.status === 'offline') return;
-    const interval = setInterval(() => {
-      const reactions = ['👍', '❤️', '🎉', '🔥', '💻', '💡', '🚀', '☕'];
-      const randomEmoji = reactions[Math.floor(Math.random() * reactions.length)];
-      triggerEmoji(randomEmoji);
-    }, 12000 + Math.random() * 15000);
-    return () => clearInterval(interval);
-  }, [employee.status]);
-
-  const triggerEmoji = (emoji: string) => {
-    setEmojis(prev => [...prev, { id: Date.now(), emoji }]);
-  };
+  // Employee avatar component
 
   if (employee.isHidden) return null;
 
@@ -139,18 +126,7 @@ export default function Avatar({
         employee.isPrivate && "opacity-40"
       )}>
 
-        {/* ═══ 1. FLOATING REACTION EMOJIS ═══ */}
-        <div className="absolute -top-12 z-50 pointer-events-none">
-          {emojis.map(e => (
-            <span 
-              key={e.id}
-              className="absolute text-2xl floating-reaction-emoji"
-              onAnimationEnd={() => setEmojis(prev => prev.filter(item => item.id !== e.id))}
-            >
-              {e.emoji}
-            </span>
-          ))}
-        </div>
+
 
         {/* ═══ 2. FLOATING VIDEO TILE ABOVE AVATAR ═══ */}
         <div className="relative mb-1">
