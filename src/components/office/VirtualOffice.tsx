@@ -92,6 +92,7 @@ export default function VirtualOffice() {
   const [privateCallTargetId, setPrivateCallTargetId] = useState<string | null>(null);
   const [isPunchedIn, setIsPunchedIn] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [realCompanyId, setRealCompanyId] = useState<string | null>(null);
   const [attendanceId, setAttendanceId] = useState<string | null>(null);
   const [realtimeStatus, setRealtimeStatus] = useState<string>('connecting');
   // Interactive mini-features state
@@ -362,6 +363,8 @@ export default function VirtualOffice() {
                 await supabase.from('profiles').update({ company_id: currentCompanyId }).eq('id', profile.id);
               }
             }
+            
+            setRealCompanyId(currentCompanyId);
             
             // FOR TESTING: Force all users into the same presence channel regardless of their real company_id
             currentCompanyId = 'kalspace_shared_demo_room';
@@ -1022,12 +1025,12 @@ export default function VirtualOffice() {
                       .eq('id', attendanceId);
                     if (!error) setAttendanceId(null);
                     else setIsPunchedIn(true);
-                  } else if (!isPunchedIn && companyId) {
+                  } else if (!isPunchedIn && realCompanyId) {
                     // Clock in
                     setIsPunchedIn(true);
                     const { data, error } = await supabase
                       .from('attendance')
-                      .insert({ company_id: companyId, user_id: loggedInUserId, status: 'Working' })
+                      .insert({ company_id: realCompanyId, user_id: loggedInUserId, status: 'Working' })
                       .select('id')
                       .single();
                     if (data && !error) setAttendanceId(data.id);
