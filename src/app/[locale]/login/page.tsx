@@ -27,7 +27,13 @@ export default function LoginPage() {
       });
 
       if (error) {
-        throw new Error(error.message || 'فشل تسجيل الدخول. يرجى التحقق من البيانات.');
+        let msg = error.message;
+        if (error.message === 'Invalid login credentials') {
+          msg = 'بيانات تسجيل الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور.';
+        }
+        setErrorMsg(msg);
+        setLoading(false);
+        return;
       }
 
       // Fetch user profile to ensure they are assigned a company
