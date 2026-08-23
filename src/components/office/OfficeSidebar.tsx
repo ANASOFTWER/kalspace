@@ -136,7 +136,7 @@ export default function OfficeSidebar({
       {!isOpen && (
         <button 
           onClick={() => setIsOpen(true)}
-          className="absolute top-24 left-6 z-40 bg-slate-900/90 border border-slate-700 text-white p-2.5 rounded-xl shadow-2xl hover:bg-slate-800 transition-all flex items-center gap-2 group pointer-events-auto relative"
+          className="absolute top-24 left-6 z-40 bg-slate-900/90 border border-slate-700 text-white p-2.5 rounded-xl shadow-2xl hover:bg-slate-800 transition-all flex items-center gap-2 group pointer-events-auto"
         >
           <Menu className="w-5 h-5 group-hover:scale-110 transition-transform" />
           <span className="text-xs font-bold px-1 hidden md:block">القائمة</span>

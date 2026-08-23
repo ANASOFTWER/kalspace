@@ -457,8 +457,10 @@ export default function VirtualOffice() {
             
             setRealCompanyId(currentCompanyId);
             
-            // Use real company_id for the presence channel so same-company employees see each other
-            setCompanyId(currentCompanyId || 'kalspace_shared_demo_room');
+            // Force shared room on localhost for multi-tab/browser local testing. Use real company_id in production.
+            const isLocalhost = typeof window !== 'undefined' && 
+              (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+            setCompanyId(isLocalhost ? 'kalspace_shared_demo_room' : (currentCompanyId || 'kalspace_shared_demo_room'));
 
             // Check if user is currently punched in
             const { data: activeAttendance } = await supabase
