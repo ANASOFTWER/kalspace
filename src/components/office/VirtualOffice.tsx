@@ -443,6 +443,7 @@ export default function VirtualOffice() {
         const { data: { session } } = await supabase.auth.getSession();
         
         let realUser: Employee | null = null;
+        let databaseEmployees: Employee[] = [];
         if (session) {
           const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
           if (profile) {
@@ -471,6 +472,28 @@ export default function VirtualOffice() {
             }
             
             setRealCompanyId(currentCompanyId);
+
+            // Fetch company profiles
+            if (currentCompanyId) {
+              const { data: companyProfiles } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('company_id', currentCompanyId);
+              if (companyProfiles) {
+                databaseEmployees = companyProfiles.map((p, idx) => ({
+                  id: p.id,
+                  name: p.full_name || 'موظف',
+                  role: p.role || 'Employee',
+                  department: '',
+                  status: 'offline', // default to offline, presence sync will set to online
+                  x: p.id === profile.id ? 80 : 180 + (idx * 40) % 250,
+                  y: p.id === profile.id ? 120 : 150 + (idx * 30) % 120,
+                  profileImage: p.avatar_url || undefined,
+                  is_terminated: p.is_terminated,
+                  termination_reason: p.termination_reason || undefined
+                }));
+              }
+            }
             
             // Force shared room on localhost for multi-tab/browser local testing. Use real company_id in production.
             const isLocalhost = typeof window !== 'undefined' && (
@@ -514,7 +537,6 @@ export default function VirtualOffice() {
         }
 
         const count = companySize === '6-10' ? 5 : companySize === '11-15' ? 6 : companySize === '16+' ? 7 : 4;
-        const mockUserList = EXTRA_MOCK_EMPLOYEES.slice(0, count - 1);
         
         const saved = localStorage.getItem('kalspace_employees');
         let localEmployees: Employee[] = [];
@@ -527,11 +549,31 @@ export default function VirtualOffice() {
         }
 
         if (realUser) {
-          if (localEmployees.length > 0) {
-            const others = localEmployees.filter(emp => emp.id !== realUser.id);
-            setEmployees([realUser, ...others]);
+          // Ensure realUser is in databaseEmployees and has status 'online'
+          const exists = databaseEmployees.some(emp => emp.id === realUser!.id);
+          let initialList = databaseEmployees;
+          if (!exists) {
+            initialList = [realUser, ...databaseEmployees];
           } else {
-            setEmployees([realUser, ...mockUserList]);
+            initialList = initialList.map(emp => {
+              if (emp.id === realUser!.id) {
+                return { ...emp, status: 'online', x: realUser!.x, y: realUser!.y };
+              }
+              return emp;
+            });
+          }
+          
+          initialList = initialList.filter(emp => !emp.is_terminated);
+          
+          // Keep mock/local employees from localStorage (IDs starting with less than 10 length, e.g. "101")
+          const localMocks = localEmployees.filter(emp => emp.id.length < 10 && emp.id !== realUser!.id);
+          
+          if (localMocks.length > 0) {
+            setEmployees([...initialList, ...localMocks]);
+          } else {
+            const neededMockCount = count - initialList.length;
+            const mockUserList = EXTRA_MOCK_EMPLOYEES.slice(0, Math.max(0, neededMockCount));
+            setEmployees([...initialList, ...mockUserList]);
           }
         } else {
           const defaultCEO: Employee = {
@@ -547,10 +589,11 @@ export default function VirtualOffice() {
           setLoggedInUserId(fallbackUserId);
           setCompanyId('kalspace_shared_demo_room'); // Set companyId for mock user too so presence channel connects
           
-          if (localEmployees.length > 0) {
-            const others = localEmployees.filter(emp => emp.id !== fallbackUserId);
-            setEmployees([defaultCEO, ...others]);
+          const localMocks = localEmployees.filter(emp => emp.id.length < 10 && emp.id !== fallbackUserId);
+          if (localMocks.length > 0) {
+            setEmployees([defaultCEO, ...localMocks]);
           } else {
+            const mockUserList = EXTRA_MOCK_EMPLOYEES.slice(0, count - 1);
             setEmployees([defaultCEO, ...mockUserList]);
           }
         }
@@ -618,17 +661,33 @@ export default function VirtualOffice() {
 
         console.log('Presence Sync: Active online users (excluding self)', onlineUsers);
         setEmployees(prev => {
-           // We keep the coordinates of existing users if they are already in the array
-           // so that they don't snap back to original positions on sync
-           const mergedUsers = onlineUsers.map(onlineUser => {
-             const existing = prev.find(p => p.id === onlineUser.id);
-             if (existing) {
-               return { ...onlineUser, x: existing.x, y: existing.y };
-             }
-             return onlineUser;
-           });
-            const prevLocal = prev.filter(emp => emp.id === loggedInUserId || emp.id.length < 5 || emp.id === 'loading');
-            return [...prevLocal, ...mergedUsers];
+          const updated = prev.map(emp => {
+            if (emp.id === loggedInUserId) {
+              return { ...emp, status: 'online' as const };
+            }
+            
+            const onlineData = onlineUsers.find(ou => ou.id === emp.id);
+            if (onlineData) {
+              return { 
+                ...emp, 
+                status: 'online' as const,
+                x: emp.status === 'offline' ? onlineData.x : emp.x,
+                y: emp.status === 'offline' ? onlineData.y : emp.y,
+                profileImage: onlineData.profileImage || emp.profileImage
+              };
+            } else {
+              // Local mock employees (id length < 10) stay online
+              if (emp.id.length < 10) {
+                return emp;
+              }
+              // Database employees go offline
+              return { ...emp, status: 'offline' as const };
+            }
+          });
+          
+          // Add any new online users that weren't in the list
+          const newOnes = onlineUsers.filter(ou => !updated.some(emp => emp.id === ou.id));
+          return [...updated, ...newOnes];
         });
       })
       .on('broadcast', { event: 'move' }, (payload) => {
