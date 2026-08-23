@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Users, MessageSquare, Paintbrush, Compass, Smile, Radio, ChevronRight, ChevronLeft, Menu } from 'lucide-react';
 import { Employee } from './Avatar';
 import { motion, AnimatePresence } from 'framer-motion';
