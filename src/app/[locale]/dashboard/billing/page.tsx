@@ -1,8 +1,73 @@
 "use client";
 
-import { CreditCard, Check, Shield } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
+import { CreditCard, Check, Shield, AlertTriangle, Loader2 } from 'lucide-react';
+import { Link } from '@/i18n/routing';
 
 export default function BillingPage() {
+  const [loading, setLoading] = useState(true);
+  const [isAuthorized, setIsAuthorized] = useState(false);
+
+  useEffect(() => {
+    async function checkRole() {
+      try {
+        setLoading(true);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          setIsAuthorized(false);
+          return;
+        }
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', session.user.id)
+          .single();
+
+        if (profile) {
+          const role = profile.role;
+          setIsAuthorized(role === 'CEO' || role === 'admin' || role === 'manager');
+        }
+      } catch (err) {
+        console.error('Error checking role on billing page:', err);
+        setIsAuthorized(false);
+      } finally {
+        setLoading(false);
+      }
+    }
+    checkRole();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center py-20 gap-3">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+        <p className="text-slate-400 text-sm">جاري التحقق من صلاحيات الوصول...</p>
+      </div>
+    );
+  }
+
+  if (!isAuthorized) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center animate-fade-in-up" dir="rtl">
+        <div className="w-16 h-16 rounded-full bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 mb-6 shadow-lg shadow-rose-500/5">
+          <AlertTriangle className="w-8 h-8" />
+        </div>
+        <h1 className="text-2xl font-bold text-white mb-2">غير مصرح بالدخول</h1>
+        <p className="text-slate-400 text-sm max-w-sm leading-relaxed mb-8">
+          عذراً، الوصول لصفحة الفواتير والاشتراكات متاح فقط لمديري ومسؤولي الشركة التنفيذيين.
+        </p>
+        <Link 
+          href="/dashboard"
+          className="px-6 py-2.5 bg-slate-800 hover:bg-slate-750 text-white rounded-lg text-sm font-semibold transition-all border border-white/5"
+        >
+          العودة للوحة التحكم
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full p-4 md:p-6 flex flex-col animate-fade-in-up">
       <div className="flex items-center justify-between mb-8">

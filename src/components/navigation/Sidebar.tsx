@@ -69,7 +69,7 @@ export default function Sidebar() {
   const bottomItems = [
     { name: t('reports'), href: '/dashboard/reports', icon: BarChart3 },
     { name: t('notifications'), href: '/dashboard/notifications', icon: Bell },
-    { name: t('billing'), href: '/dashboard/billing', icon: CreditCard },
+    ...(isCEO ? [{ name: t('billing'), href: '/dashboard/billing', icon: CreditCard }] : []),
     { name: t('settings'), href: '/dashboard/settings', icon: Settings },
     { name: t('support'), href: '/dashboard/support', icon: LifeBuoy },
   ];
