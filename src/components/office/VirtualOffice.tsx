@@ -208,6 +208,133 @@ export default function VirtualOffice() {
   const [isCallVideoOff, setIsCallVideoOff] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
 
+  // Call audio ringtone references
+  const ringtoneIntervalRef = useRef<any>(null);
+  const ringbackIntervalRef = useRef<any>(null);
+
+  const stopIncomingRingtone = () => {
+    if (ringtoneIntervalRef.current) {
+      clearInterval(ringtoneIntervalRef.current);
+      ringtoneIntervalRef.current = null;
+    }
+  };
+
+  const playIncomingRingtone = () => {
+    stopIncomingRingtone();
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+
+    const playRing = () => {
+      try {
+        const ctx = new AudioContextClass();
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+
+        osc1.frequency.value = 440;
+        osc2.frequency.value = 480;
+
+        osc1.connect(gainNode);
+        osc2.connect(gainNode);
+        gainNode.connect(ctx.destination);
+
+        gainNode.gain.setValueAtTime(0, ctx.currentTime);
+        
+        gainNode.gain.linearRampToValueAtTime(0.2, ctx.currentTime + 0.05);
+        gainNode.gain.setValueAtTime(0.2, ctx.currentTime + 0.65);
+        gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.7);
+
+        gainNode.gain.linearRampToValueAtTime(0.2, ctx.currentTime + 0.85);
+        gainNode.gain.setValueAtTime(0.2, ctx.currentTime + 1.45);
+        gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + 1.5);
+
+        osc1.start();
+        osc2.start();
+
+        setTimeout(() => {
+          try {
+            osc1.stop();
+            osc2.stop();
+            ctx.close();
+          } catch(e){}
+        }, 2000);
+      } catch (e) {
+        console.error("Ringtone synth failed", e);
+      }
+    };
+
+    playRing();
+    ringtoneIntervalRef.current = setInterval(playRing, 3000);
+  };
+
+  const stopOutgoingRingback = () => {
+    if (ringbackIntervalRef.current) {
+      clearInterval(ringbackIntervalRef.current);
+      ringbackIntervalRef.current = null;
+    }
+  };
+
+  const playOutgoingRingback = () => {
+    stopOutgoingRingback();
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+
+    const playRingback = () => {
+      try {
+        const ctx = new AudioContextClass();
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+
+        osc1.frequency.value = 400;
+        osc2.frequency.value = 450;
+
+        osc1.connect(gainNode);
+        osc2.connect(gainNode);
+        gainNode.connect(ctx.destination);
+
+        gainNode.gain.setValueAtTime(0, ctx.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.1, ctx.currentTime + 0.1);
+        gainNode.gain.setValueAtTime(0.1, ctx.currentTime + 1.5);
+        gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + 1.7);
+
+        osc1.start();
+        osc2.start();
+
+        setTimeout(() => {
+          try {
+            osc1.stop();
+            osc2.stop();
+            ctx.close();
+          } catch(e){}
+        }, 2000);
+      } catch (e) {}
+    };
+
+    playRingback();
+    ringbackIntervalRef.current = setInterval(playRingback, 4000);
+  };
+
+  // Play incoming ringtone when incomingCall is active
+  useEffect(() => {
+    if (incomingCall) {
+      playIncomingRingtone();
+    } else {
+      stopIncomingRingtone();
+    }
+    return () => stopIncomingRingtone();
+  }, [incomingCall]);
+
+  // Play outgoing ringback when privateCallTargetId is set but not callActive
+  useEffect(() => {
+    if (privateCallTargetId && !callActive) {
+      playOutgoingRingback();
+    } else {
+      stopOutgoingRingback();
+    }
+    return () => stopOutgoingRingback();
+  }, [privateCallTargetId, callActive]);
+
   const audioCtxRef = useRef<AudioContext | null>(null);
   const ambientNodesRef = useRef<any[]>([]);
 
