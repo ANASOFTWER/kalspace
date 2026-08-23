@@ -54,12 +54,25 @@ export default function ReportsPage() {
           setProductivity(`${Math.round((doneTasks / totalTasks) * 100)}%`);
         }
 
-        // 2. Work Hours: Estimate 8 hours per attendance record this month
+        // 2. Work Hours: Calculate real hours from check-in and check-out durations this month
         const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
-        const { count: attendanceCount } = await supabase.from('attendance').select('*', { count: 'exact', head: true }).gte('created_at', startOfMonth);
+        const { data: attendanceRecordsData } = await supabase
+          .from('attendance')
+          .select('check_in, check_out')
+          .gte('check_in', startOfMonth);
         
-        if (attendanceCount !== null) {
-          setWorkHours(`${attendanceCount * 8} ساعة`);
+        if (attendanceRecordsData) {
+          let totalHours = 0;
+          attendanceRecordsData.forEach(record => {
+            const checkIn = new Date(record.check_in);
+            const checkOut = record.check_out ? new Date(record.check_out) : new Date(); // If running, calculate up to now
+            const diffMs = checkOut.getTime() - checkIn.getTime();
+            const diffHrs = diffMs / 3600000;
+            if (diffHrs > 0) {
+              totalHours += diffHrs;
+            }
+          });
+          setWorkHours(`${totalHours.toFixed(1)} ساعة`);
         }
 
         // 3. Absence Rate: Active leaves / total employees
