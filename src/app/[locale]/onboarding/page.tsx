@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl';
 import { useState, useEffect, use } from 'react';
 import { useRouter } from '@/i18n/routing';
 import { Check, ChevronRight, Upload, Coffee, Monitor, Leaf, ArrowLeft, Loader2, Link as LinkIcon } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 interface OfficeMapPreviewProps {
   theme: string;
@@ -88,6 +89,28 @@ export default function OnboardingPage({ params }: { params: Promise<{ locale: s
 
   // Load existing name if available
   useEffect(() => {
+    async function checkAccess() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .single();
+          if (profile) {
+            const isCEO = profile.role === 'CEO' || profile.role === 'admin' || profile.role === 'manager';
+            if (!isCEO) {
+              router.push('/dashboard');
+            }
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    checkAccess();
+
     const savedName = localStorage.getItem('company_name');
     if (savedName) {
       setSpaceName(savedName);

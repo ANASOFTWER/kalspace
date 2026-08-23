@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import { Link, usePathname, useRouter } from '@/i18n/routing';
 import { 
@@ -17,6 +18,32 @@ export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
 
+  const [isCEO, setIsCEO] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function checkRole() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .single();
+          if (profile) {
+            setIsCEO(profile.role === 'CEO' || profile.role === 'admin' || profile.role === 'manager');
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching role in sidebar:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    checkRole();
+  }, []);
+
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
@@ -30,7 +57,7 @@ export default function Sidebar() {
   const navItems = [
     { name: t('dashboard'), href: '/dashboard', icon: LayoutDashboard },
     { name: t('virtual_office'), href: '/dashboard/office', icon: Building2 },
-    { name: t('company_setup'), href: '/onboarding', icon: Briefcase },
+    ...(isCEO ? [{ name: t('company_setup'), href: '/onboarding', icon: Briefcase }] : []),
     { name: t('employees'), href: '/dashboard/employees', icon: Users },
     { name: t('meetings'), href: '/dashboard/meetings', icon: Video },
     { name: t('tasks'), href: '/dashboard/tasks', icon: CheckSquare },

@@ -100,10 +100,30 @@ export default function VirtualOffice() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<'people' | 'chat' | 'rooms'>('people');
   const [defaultMessageTarget, setDefaultMessageTarget] = useState<string>('all');
+  const [unreadMessages, setUnreadMessages] = useState<string[]>([]);
+  const [messageToast, setMessageToast] = useState<{ id: string; author: string; text: string; isPrivate: boolean } | null>(null);
   
   const searchParams = useSearchParams();
   const chatWith = searchParams.get('chatWith');
   const callWith = searchParams.get('callWith');
+  
+  const sidebarOpenRef = useRef(sidebarOpen);
+  sidebarOpenRef.current = sidebarOpen;
+  const sidebarTabRef = useRef(sidebarTab);
+  sidebarTabRef.current = sidebarTab;
+
+  useEffect(() => {
+    if (sidebarOpen && sidebarTab === 'chat') {
+      setUnreadMessages([]);
+    }
+  }, [sidebarOpen, sidebarTab]);
+
+  useEffect(() => {
+    if (messageToast) {
+      const timer = setTimeout(() => setMessageToast(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [messageToast]);
   // Interactive mini-features state
   const [stickyNotes, setStickyNotes] = useState<StickyNote[]>([]);
   const [newNoteText, setNewNoteText] = useState('');
@@ -597,12 +617,20 @@ export default function VirtualOffice() {
         const msg = payload.payload;
         if (msg.to === loggedInUserId) {
           setChatMessages(prev => [...prev, msg]);
+          if (!sidebarOpenRef.current || sidebarTabRef.current !== 'chat') {
+            setUnreadMessages(prev => [...prev, msg.id]);
+            setMessageToast({ id: msg.id, author: msg.author, text: msg.text, isPrivate: true });
+          }
         }
       })
       .on('broadcast', { event: 'public_msg' }, (payload) => {
         const msg = payload.payload;
         if (msg.from !== loggedInUserId) {
           setChatMessages(prev => [...prev, msg]);
+          if (!sidebarOpenRef.current || sidebarTabRef.current !== 'chat') {
+            setUnreadMessages(prev => [...prev, msg.id]);
+            setMessageToast({ id: msg.id, author: msg.author, text: msg.text, isPrivate: false });
+          }
         }
       })
       .on('broadcast', { event: 'private_call_invite' }, (payload) => {
@@ -1714,7 +1742,41 @@ export default function VirtualOffice() {
         activeTab={sidebarTab}
         onTabChange={setSidebarTab}
         defaultMessageTarget={defaultMessageTarget}
+        unreadCount={unreadMessages.length}
       />
+
+      {/* FLOATING CHAT TOAST NOTIFICATION */}
+      <AnimatePresence>
+        {messageToast && (
+          <motion.div 
+            initial={{ x: -100, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: -100, opacity: 0 }}
+            onClick={() => {
+              setSidebarOpen(true);
+              setSidebarTab('chat');
+              const emp = employees.find(e => e.name === messageToast.author);
+              if (emp) {
+                setDefaultMessageTarget(emp.id);
+              }
+              setMessageToast(null);
+            }}
+            className="fixed bottom-6 left-6 z-50 bg-slate-950/95 hover:bg-slate-900 border border-indigo-500/40 text-white px-4 py-3 rounded-xl shadow-2xl backdrop-blur-xl transition-all cursor-pointer flex items-center gap-3 max-w-xs cursor-pointer select-none"
+            dir="rtl"
+          >
+            <div className="w-8 h-8 rounded-full bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-sm shrink-0">
+              💬
+            </div>
+            <div className="flex-1 min-w-0 text-right">
+              <p className="text-[10px] font-bold text-indigo-400">
+                {messageToast.isPrivate ? 'رسالة خاصة جديدة' : 'رسالة عامة جديدة'}
+              </p>
+              <p className="text-xs font-bold text-white truncate">{messageToast.author}</p>
+              <p className="text-[11px] text-slate-400 truncate leading-snug">{messageToast.text}</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ═══ INVITE TEAM MODAL ═══ */}
       <InviteModal 
