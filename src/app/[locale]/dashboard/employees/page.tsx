@@ -248,7 +248,7 @@ export default function EmployeesPage() {
         
         <div className="flex items-center gap-3">
           {/* Invite Employee Button - Enabled for Admins */}
-          {userRole === 'admin' && (
+          {(userRole === 'admin' || userRole === 'manager' || userRole === 'hr') && (
             <button
               onClick={() => {
                 setIsInviteOpen(true);

@@ -653,6 +653,7 @@ export default function VirtualOffice() {
     y: 120,
   };
   const canEditMap = currentUser?.role === 'CEO';
+  const canInviteTeam = currentUser?.role === 'CEO' || currentUser?.role === 'hr' || currentUser?.role === 'admin' || currentUser?.department === 'HR';
 
   // Broadcast our movement
   useEffect(() => {
@@ -1318,8 +1319,8 @@ export default function VirtualOffice() {
               <span>{isNightMode ? '🌙' : '🌞'}</span> 
             </button>
 
-            {/* Invite Button (CEO Only) */}
-            {canEditMap && (
+            {/* Invite Button (CEO & HR Only) */}
+            {canInviteTeam && (
               <button 
                 onClick={() => setInviteOpen(true)}
                 className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:from-indigo-500 hover:to-blue-500 text-xs font-bold transition-all shadow-lg flex items-center gap-1.5 pointer-events-auto"
