@@ -83,7 +83,23 @@ export default function EmployeesPage() {
 
         if (profileError || !profile || !profile.company_id) {
           setIsDemo(true);
-          setEmployees(MOCK_EMPLOYEES);
+          const saved = localStorage.getItem('kalspace_employees');
+          if (saved) {
+            try {
+              const list = JSON.parse(saved).map((emp: any) => ({
+                id: emp.id,
+                full_name: emp.name,
+                role: emp.role,
+                company_id: null,
+                status: emp.status || 'online'
+              }));
+              setEmployees(list);
+            } catch (e) {
+              setEmployees([]);
+            }
+          } else {
+            setEmployees([]);
+          }
           return;
         }
 
@@ -178,7 +194,17 @@ export default function EmployeesPage() {
     setTerminationLoading(true);
     try {
       if (isDemo) {
-        setEmployees(prev => prev.filter(emp => emp.id !== terminateEmployee.id));
+        setEmployees(prev => {
+          const updated = prev.filter(emp => emp.id !== terminateEmployee.id);
+          const saved = localStorage.getItem('kalspace_employees');
+          if (saved) {
+            try {
+              const parsed = JSON.parse(saved).filter((emp: any) => emp.id !== terminateEmployee.id);
+              localStorage.setItem('kalspace_employees', JSON.stringify(parsed));
+            } catch (e) {}
+          }
+          return updated;
+        });
         setTerminateEmployee(null);
         setTerminationReason('');
         return;

@@ -172,6 +172,13 @@ create policy "Users can view their own profile" on public.profiles
 create policy "Users can update their own profile" on public.profiles
   for update using (id = auth.uid());
 
+create policy "Managers, admins, and HR can update profiles in the same company" on public.profiles
+  for update using (
+    company_id = public.get_auth_user_company_id()
+    and
+    (select role from public.profiles where id = auth.uid()) in ('admin', 'manager', 'hr', 'CEO')
+  );
+
 -- الدعوات
 create policy "Admins can view invitations for their company" on public.invitations
   for select using (

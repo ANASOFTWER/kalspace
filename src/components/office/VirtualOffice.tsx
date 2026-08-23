@@ -441,8 +441,23 @@ export default function VirtualOffice() {
         const count = companySize === '6-10' ? 5 : companySize === '11-15' ? 6 : companySize === '16+' ? 7 : 4;
         const mockUserList = EXTRA_MOCK_EMPLOYEES.slice(0, count - 1);
         
+        const saved = localStorage.getItem('kalspace_employees');
+        let localEmployees: Employee[] = [];
+        if (saved) {
+          try {
+            localEmployees = JSON.parse(saved);
+          } catch (e) {
+            console.error(e);
+          }
+        }
+
         if (realUser) {
-          setEmployees([realUser, ...mockUserList]);
+          if (localEmployees.length > 0) {
+            const others = localEmployees.filter(emp => emp.id !== realUser.id);
+            setEmployees([realUser, ...others]);
+          } else {
+            setEmployees([realUser, ...mockUserList]);
+          }
         } else {
           const defaultCEO: Employee = {
             id: '1',
@@ -456,7 +471,13 @@ export default function VirtualOffice() {
           };
           setLoggedInUserId('1');
           setCompanyId('kalspace_shared_demo_room'); // Set companyId for mock user too so presence channel connects
-          setEmployees([defaultCEO, ...mockUserList]);
+          
+          if (localEmployees.length > 0) {
+            const others = localEmployees.filter(emp => emp.id !== '1');
+            setEmployees([defaultCEO, ...others]);
+          } else {
+            setEmployees([defaultCEO, ...mockUserList]);
+          }
         }
       } catch (err) {
         console.error("Failed to load user or session:", err);
