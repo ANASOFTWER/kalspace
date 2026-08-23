@@ -250,12 +250,17 @@ export default function VirtualOffice() {
   // Image layout: TOP ROW: Kitchen | CEO Office | HR Office | Boardroom
   //               BOT ROW: Restroom | Open Workspace | Entertainment Lounge
   const getRoomsForFloor = (roomName: string): RoomZone[] => {
+    const isSmall = companySize === '2-5';
     return [
       // TOP ROW
       { id: 'zone_ceo', name: 'Executive Office', x: 40, y: 50, width: 175, height: 195, color: 'bg-transparent', borderStyle: 'border-amber-500/10 hover:border-amber-400/40 hover:bg-amber-500/[0.02]', label: 'Executive Office', arLabel: '👑 مكتب المدير التنفيذي', themeColor: 'text-amber-400', glow: 'shadow-[0_0_50px_rgba(245,158,11,0.03)]' },
       { id: 'zone_hr', name: 'HR Office', x: 215, y: 50, width: 140, height: 195, color: 'bg-transparent', borderStyle: 'border-teal-500/10 hover:border-teal-500/40 hover:bg-teal-500/[0.02]', label: 'HR Office', arLabel: '👥 مكتب شؤون الموظفين', themeColor: 'text-teal-400', glow: 'shadow-[0_0_50px_rgba(20,184,166,0.03)]' },
       { id: 'zone_cowork', name: 'Open Coworking', x: 355, y: 50, width: 400, height: 230, color: 'bg-transparent', borderStyle: 'border-cyan-500/10 hover:border-cyan-500/40 hover:bg-cyan-500/[0.02]', label: 'Private Offices', arLabel: '💻 المكاتب الخاصة', themeColor: 'text-cyan-400', glow: 'shadow-[0_0_50px_rgba(34,211,238,0.03)]' },
-      { id: 'zone_relax', name: 'Relax Lounge', x: 755, y: 50, width: 395, height: 240, color: 'bg-transparent', borderStyle: 'border-pink-500/10 hover:border-pink-500/40 hover:bg-pink-500/[0.02]', label: 'Entertainment Lounge', arLabel: '🎮 صالة الترفيه', themeColor: 'text-pink-400', glow: 'shadow-[0_0_50px_rgba(236,72,153,0.03)]' },
+      isSmall ? (
+        { id: 'zone_cowork_2', name: 'Additional Workspace', x: 755, y: 50, width: 395, height: 240, color: 'bg-transparent', borderStyle: 'border-cyan-500/10 hover:border-cyan-500/40 hover:bg-cyan-500/[0.02]', label: 'Additional Workspace', arLabel: '💻 المكاتب الإضافية', themeColor: 'text-cyan-400', glow: 'shadow-[0_0_50px_rgba(34,211,238,0.03)]' }
+      ) : (
+        { id: 'zone_relax', name: 'Relax Lounge', x: 755, y: 50, width: 395, height: 240, color: 'bg-transparent', borderStyle: 'border-pink-500/10 hover:border-pink-500/40 hover:bg-pink-500/[0.02]', label: 'Entertainment Lounge', arLabel: '🎮 صالة الترفيه', themeColor: 'text-pink-400', glow: 'shadow-[0_0_50px_rgba(236,72,153,0.03)]' }
+      ),
       // MIDDLE ROW
       { id: 'zone_board', name: 'Meeting Room', x: 40, y: 290, width: 310, height: 160, color: 'bg-transparent', borderStyle: 'border-purple-500/10 hover:border-purple-500/40 hover:bg-purple-500/[0.02]', label: 'Meeting Room', arLabel: '📊 قاعة الاجتماعات', themeColor: 'text-purple-400', glow: 'shadow-[0_0_50px_rgba(168,85,247,0.03)]' },
       { id: 'zone_break', name: 'Break Area', x: 755, y: 300, width: 310, height: 190, color: 'bg-transparent', borderStyle: 'border-green-500/10 hover:border-green-500/40 hover:bg-green-500/[0.02]', label: 'Break Area', arLabel: '☕ منطقة الاستراحة', themeColor: 'text-green-400', glow: 'shadow-[0_0_50px_rgba(34,197,94,0.03)]' },
@@ -268,7 +273,8 @@ export default function VirtualOffice() {
 
   // Define clickable furniture hotspots overlays matching the 2D blueprint map coordinates
   const getFurnitureForRoom = (roomName: string): Furniture[] => {
-    return [
+    const isSmall = companySize === '2-5';
+    const baseFurniture: Furniture[] = [
       // Executive Office (x:40-215, y:50-245)
       { id: 'ceo_desk', name: 'CEO Desk', type: 'table', x: 60, y: 100, width: 120, height: 70, color: 'bg-amber-500/[0.01] border border-amber-500/20 hover:bg-amber-500/10' },
       
@@ -287,10 +293,6 @@ export default function VirtualOffice() {
       { id: 'board_table', name: 'Meeting Table', type: 'table', x: 100, y: 330, width: 200, height: 80, color: 'bg-purple-500/[0.01] border border-purple-500/20 hover:bg-purple-500/10' },
       { id: 'board_screen', name: 'Main Display', type: 'screen', x: 55, y: 410, width: 80, height: 30, color: 'bg-purple-500/[0.01] border border-purple-500/20 hover:bg-purple-500/10', emoji: '📺' },
 
-      // Entertainment / Games (x:755-1150, y:50-240)
-      { id: 'game_billiards', name: 'Billiards Table', type: 'pool', x: 810, y: 70, width: 120, height: 70, color: 'bg-transparent' },
-      { id: 'game_pingpong', name: 'Ping Pong Table', type: 'pingpong', x: 970, y: 110, width: 120, height: 80, color: 'bg-transparent' },
-
       // Break Area (x:755-1065, y:300-490)
       { id: 'espresso_bar', name: 'Espresso Bar', type: 'coffee', x: 900, y: 310, width: 60, height: 50, color: 'bg-orange-500/[0.01] border border-orange-500/20 hover:bg-orange-500/10', emoji: '☕' },
 
@@ -300,9 +302,25 @@ export default function VirtualOffice() {
       // Bathroom (x:1020-1140, y:600-710)
       { id: 'toilet_1', name: 'Toilet', type: 'restroom_toilet', x: 1070, y: 650, width: 45, height: 40, color: 'bg-slate-500/[0.01] border border-slate-500/20 hover:bg-slate-500/10', emoji: '🚽' },
       { id: 'sink_1', name: 'Wash Sink', type: 'restroom_sink', x: 1025, y: 650, width: 40, height: 40, color: 'bg-slate-500/[0.01] border border-slate-500/20 hover:bg-slate-500/10', emoji: '🚰' },
-      
-
     ];
+
+    if (isSmall) {
+      return [
+        ...baseFurniture,
+        // Additional desks replacing Relax lounge
+        { id: 'eng_desk6', name: 'مكتب 6', type: 'table', x: 800, y: 75, width: 90, height: 55, color: 'bg-cyan-500/[0.01] border border-cyan-500/20 hover:bg-cyan-500/10' },
+        { id: 'eng_desk7', name: 'مكتب 7', type: 'table', x: 950, y: 75, width: 90, height: 55, color: 'bg-cyan-500/[0.01] border border-cyan-500/20 hover:bg-cyan-500/10' },
+        { id: 'eng_desk8', name: 'مكتب 8', type: 'table', x: 800, y: 175, width: 90, height: 55, color: 'bg-cyan-500/[0.01] border border-cyan-500/20 hover:bg-cyan-500/10' },
+        { id: 'eng_desk9', name: 'مكتب 9', type: 'table', x: 950, y: 175, width: 90, height: 55, color: 'bg-cyan-500/[0.01] border border-cyan-500/20 hover:bg-cyan-500/10' }
+      ];
+    } else {
+      return [
+        ...baseFurniture,
+        // Entertainment / Games (x:755-1150, y:50-240)
+        { id: 'game_billiards', name: 'Billiards Table', type: 'pool', x: 810, y: 70, width: 120, height: 70, color: 'bg-transparent' },
+        { id: 'game_pingpong', name: 'Ping Pong Table', type: 'pingpong', x: 970, y: 110, width: 120, height: 80, color: 'bg-transparent' }
+      ];
+    }
   };
 
   const [roomFurnitures, setRoomFurnitures] = useState<Furniture[]>([]);
@@ -327,6 +345,12 @@ export default function VirtualOffice() {
 
   // Load custom rooms list & company name & size
   useEffect(() => {
+    // Set default room zones & furnitures
+    setRoomZones(getRoomsForFloor(currentRoom));
+    setRoomFurnitures(getFurnitureForRoom(currentRoom));
+  }, [currentRoom, companySize]);
+
+  useEffect(() => {
     const saved = localStorage.getItem('kalspace_custom_rooms');
     if (saved) setCustomRoomsList(JSON.parse(saved));
     const savedCompanyName = localStorage.getItem('company_name');
@@ -335,11 +359,7 @@ export default function VirtualOffice() {
     if (savedSize) setCompanySize(savedSize);
     const savedTheme = localStorage.getItem('company_theme');
     if (savedTheme) setCompanyTheme(savedTheme);
-    
-    // Set default room zones & furnitures
-    setRoomZones(getRoomsForFloor(currentRoom));
-    setRoomFurnitures(getFurnitureForRoom(currentRoom));
-  }, [currentRoom]);
+  }, []);
 
   // Handle URL Query Redirections (chatWith & callWith)
   useEffect(() => {
