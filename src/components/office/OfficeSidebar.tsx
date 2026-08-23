@@ -21,6 +21,11 @@ interface OfficeSidebarProps {
   chatMessages?: any[];
   onSendChat?: (text: string, target: string) => void;
   onStartPrivateCall?: (targetId: string) => void;
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  activeTab?: 'people' | 'chat' | 'rooms';
+  onTabChange?: (tab: 'people' | 'chat' | 'rooms') => void;
+  defaultMessageTarget?: string;
 }
 
 export default function OfficeSidebar({ 
@@ -39,8 +44,12 @@ export default function OfficeSidebar({
   chatMessages: chatMessagesProp,
   onSendChat,
   onStartPrivateCall,
+  isOpen: isOpenProp,
+  onOpenChange,
+  activeTab: activeTabProp,
+  onTabChange,
+  defaultMessageTarget,
 }: OfficeSidebarProps) {
-  const [activeTab, setActiveTab] = useState<'people' | 'chat' | 'rooms'>('people');
   const activeEmployees = employees.filter(emp => !emp.is_terminated);
   
   interface ChatMessage {
@@ -56,6 +65,20 @@ export default function OfficeSidebar({
   const displayedMessages = chatMessagesProp || chatMessages;
   const [inputText, setInputText] = useState('');
   const [messageTarget, setMessageTarget] = useState<string>('all');
+
+  useEffect(() => {
+    if (defaultMessageTarget) {
+      setMessageTarget(defaultMessageTarget);
+    }
+  }, [defaultMessageTarget]);
+
+  const [isOpenState, setIsOpenState] = useState(false);
+  const isOpen = isOpenProp !== undefined ? isOpenProp : isOpenState;
+  const setIsOpen = onOpenChange || setIsOpenState;
+
+  const [activeTabState, setActiveTabState] = useState<'people' | 'chat' | 'rooms'>('people');
+  const activeTab = activeTabProp !== undefined ? activeTabProp : activeTabState;
+  const setActiveTab = onTabChange || setActiveTabState;
 
   // RBAC permissions
   const isManager = currentUser.role === 'CEO';
@@ -103,7 +126,7 @@ export default function OfficeSidebar({
     setInputText('');
   };
 
-  const [isOpen, setIsOpen] = useState(false);
+
 
   return (
     <>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import Avatar, { Employee } from './Avatar';
 import OfficeSidebar from './OfficeSidebar';
@@ -96,6 +97,13 @@ export default function VirtualOffice() {
   const [realCompanyId, setRealCompanyId] = useState<string | null>(null);
   const [attendanceId, setAttendanceId] = useState<string | null>(null);
   const [realtimeStatus, setRealtimeStatus] = useState<string>('connecting');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<'people' | 'chat' | 'rooms'>('people');
+  const [defaultMessageTarget, setDefaultMessageTarget] = useState<string>('all');
+  
+  const searchParams = useSearchParams();
+  const chatWith = searchParams.get('chatWith');
+  const callWith = searchParams.get('callWith');
   // Interactive mini-features state
   const [stickyNotes, setStickyNotes] = useState<StickyNote[]>([]);
   const [newNoteText, setNewNoteText] = useState('');
@@ -332,6 +340,27 @@ export default function VirtualOffice() {
     setRoomZones(getRoomsForFloor(currentRoom));
     setRoomFurnitures(getFurnitureForRoom(currentRoom));
   }, [currentRoom]);
+
+  // Handle URL Query Redirections (chatWith & callWith)
+  useEffect(() => {
+    if (chatWith && employees.length > 1) {
+      const emp = employees.find(e => e.id === chatWith);
+      if (emp) {
+        setSidebarOpen(true);
+        setSidebarTab('chat');
+        setDefaultMessageTarget(chatWith);
+      }
+    }
+  }, [chatWith, employees]);
+
+  useEffect(() => {
+    if (callWith && employees.length > 1 && realCompanyId) {
+      const emp = employees.find(e => e.id === callWith);
+      if (emp) {
+        startPrivateCall(callWith);
+      }
+    }
+  }, [callWith, employees, realCompanyId]);
 
   // Save employees list helper
   const saveEmployees = (newEmployees: Employee[]) => {
@@ -1627,6 +1656,11 @@ export default function VirtualOffice() {
         chatMessages={chatMessages}
         onSendChat={handleSendChatMessage}
         onStartPrivateCall={startPrivateCall}
+        isOpen={sidebarOpen}
+        onOpenChange={setSidebarOpen}
+        activeTab={sidebarTab}
+        onTabChange={setSidebarTab}
+        defaultMessageTarget={defaultMessageTarget}
       />
 
       {/* ═══ INVITE TEAM MODAL ═══ */}

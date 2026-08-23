@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Search, MessageSquare, Phone, Plus, X, Copy, Check, AlertTriangle, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useLocale } from 'next-intl';
+import { useRouter } from '@/i18n/routing';
 
 interface Employee {
   id: string;
@@ -33,6 +34,7 @@ const ROLE_LABELS: Record<string, { title: string; dept: string }> = {
 
 export default function EmployeesPage() {
   const locale = useLocale();
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -279,10 +281,18 @@ export default function EmployeesPage() {
               </div>
 
               <div className="flex flex-col gap-2">
-                <button className="p-2 bg-white/5 hover:bg-primary/20 rounded-lg text-slate-400 hover:text-primary transition-colors">
+                <button 
+                  onClick={() => router.push(`/dashboard/office?chatWith=${emp.id}`)}
+                  className="p-2 bg-white/5 hover:bg-primary/20 rounded-lg text-slate-400 hover:text-primary transition-colors"
+                  title="مراسلة خاصة"
+                >
                   <MessageSquare className="w-4 h-4" />
                 </button>
-                <button className="p-2 bg-white/5 hover:bg-success/20 rounded-lg text-slate-400 hover:text-success transition-colors">
+                <button 
+                  onClick={() => router.push(`/dashboard/office?callWith=${emp.id}`)}
+                  className="p-2 bg-white/5 hover:bg-success/20 rounded-lg text-slate-400 hover:text-success transition-colors"
+                  title="اتصال خاص"
+                >
                   <Phone className="w-4 h-4" />
                 </button>
                 {(userRole === 'admin' || userRole === 'manager' || userRole === 'hr') && emp.id !== currentUserId && (
