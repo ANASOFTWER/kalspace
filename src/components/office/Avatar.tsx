@@ -207,7 +207,7 @@ export default function Avatar({
               <span>{dept.icon}</span>
             )}
             {employee.isPrivate && <span className="text-[9px]">🔒</span>}
-            <span className="tracking-tight">{employee.name} (ID: {employee.id})</span>
+            <span className="tracking-tight">{employee.name}</span>
           </div>
         </div>
 
