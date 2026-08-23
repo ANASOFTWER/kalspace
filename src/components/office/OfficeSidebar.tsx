@@ -18,6 +18,9 @@ interface OfficeSidebarProps {
   onCreateCompanyClick?: () => void;
   spatialBubbleTarget?: Employee | null;
   onInviteClick?: () => void;
+  chatMessages?: any[];
+  onSendChat?: (text: string, target: string) => void;
+  onStartPrivateCall?: (targetId: string) => void;
 }
 
 export default function OfficeSidebar({ 
@@ -33,6 +36,9 @@ export default function OfficeSidebar({
   onCreateCompanyClick,
   spatialBubbleTarget,
   onInviteClick,
+  chatMessages: chatMessagesProp,
+  onSendChat,
+  onStartPrivateCall,
 }: OfficeSidebarProps) {
   const [activeTab, setActiveTab] = useState<'people' | 'chat' | 'rooms'>('people');
   const activeEmployees = employees.filter(emp => !emp.is_terminated);
@@ -47,6 +53,7 @@ export default function OfficeSidebar({
   }
   
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const displayedMessages = chatMessagesProp || chatMessages;
   const [inputText, setInputText] = useState('');
   const [messageTarget, setMessageTarget] = useState<string>('all');
 
@@ -78,17 +85,21 @@ export default function OfficeSidebar({
     e.preventDefault();
     if (!inputText.trim()) return;
     
-    const isPrivate = messageTarget !== 'all';
-    const targetEmployee = (messageTarget as string) === 'spatial_bubble' ? spatialBubbleTarget : employees.find(emp => emp.id === messageTarget);
-    
-    setChatMessages(prev => [...prev, {
-      id: Date.now().toString(),
-      author: currentUser.name,
-      text: inputText,
-      time: 'Just Now',
-      isPrivate: isPrivate || (messageTarget as string) === 'spatial_bubble',
-      recipientName: targetEmployee ? targetEmployee.name : undefined
-    }]);
+    if (onSendChat) {
+      onSendChat(inputText, messageTarget);
+    } else {
+      const isPrivate = messageTarget !== 'all';
+      const targetEmployee = (messageTarget as string) === 'spatial_bubble' ? spatialBubbleTarget : employees.find(emp => emp.id === messageTarget);
+      
+      setChatMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        author: currentUser.name,
+        text: inputText,
+        time: 'Just Now',
+        isPrivate: isPrivate || (messageTarget as string) === 'spatial_bubble',
+        recipientName: targetEmployee ? targetEmployee.name : undefined
+      }]);
+    }
     setInputText('');
   };
 
@@ -208,14 +219,25 @@ export default function OfficeSidebar({
                          />
                        ) : (
                          <>
-                           {emp.id !== currentUser.id && (
-                             <button 
-                               onClick={() => onTeleport(emp.id)}
-                               className="px-2.5 py-1 bg-primary/20 hover:bg-primary text-primary hover:text-white text-[10px] font-bold rounded transition-all shrink-0"
-                             >
-                               Teleport
-                             </button>
-                           )}
+                            {emp.id !== currentUser.id && (
+                              <div className="flex gap-1 items-center">
+                                <button 
+                                  onClick={() => onTeleport(emp.id)}
+                                  className="px-2.5 py-1 bg-primary/20 hover:bg-primary text-primary hover:text-white text-[10px] font-bold rounded transition-all shrink-0"
+                                >
+                                  Teleport
+                                </button>
+                                {onStartPrivateCall && (
+                                  <button 
+                                    onClick={() => onStartPrivateCall(emp.id)}
+                                    className="p-1.5 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white rounded border border-emerald-500/30 transition-all shrink-0 font-bold"
+                                    title="مكالمة خاصة"
+                                  >
+                                    📞
+                                  </button>
+                                )}
+                              </div>
+                            )}
                            {/* Delete Button for Managers/HR */}
                            {canManageEmployees && onDeleteEmployee && emp.id !== currentUser.id && (isManager || emp.role !== 'CEO') && (
                              <button 
@@ -249,7 +271,7 @@ export default function OfficeSidebar({
          {activeTab === 'chat' && (
            <div className="flex flex-col h-full">
               <div className="flex-1 overflow-y-auto space-y-3 pr-1 mb-4">
-                 {chatMessages.map(msg => (
+                 {displayedMessages.map(msg => (
                    <div key={msg.id} className={`p-2.5 border rounded-xl ${msg.isPrivate ? 'bg-indigo-900/40 border-indigo-500/50' : 'bg-slate-900/40 border-slate-800'}`}>
                       <div className="flex items-baseline justify-between mb-1">
                          <span className="text-[10px] font-bold text-slate-300">

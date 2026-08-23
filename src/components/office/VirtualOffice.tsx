@@ -10,7 +10,8 @@ import {
   Coffee, HelpCircle, Play, 
   Plus, Sparkles, X, Award, ScreenShare, ArrowRightLeft,
   Armchair, Sofa, Flower2, TreePine, Monitor, Check, Trash2,
-  Tv, Volume2, ShieldCheck, Flame, RefreshCw, Zap, Edit3, ChevronUp, ChevronDown, ChevronLeft, ChevronRight
+  Tv, Volume2, ShieldCheck, Flame, RefreshCw, Zap, Edit3, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
+  Phone, PhoneCall, PhoneOff, User, Mic, MicOff, Video, VideoOff, AlertTriangle
 } from 'lucide-react';
 import clsx from 'clsx';
 import { supabase } from '@/lib/supabase';
@@ -156,6 +157,14 @@ export default function VirtualOffice() {
   const [terminateEmployee, setTerminateEmployee] = useState<Employee | null>(null);
   const [terminationReason, setTerminationReason] = useState('');
   const [terminationLoading, setTerminationLoading] = useState(false);
+
+  // Real-time Chat and Calls
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [incomingCall, setIncomingCall] = useState<{ from: string, fromName: string } | null>(null);
+  const [callActive, setCallActive] = useState(false);
+  const [isCallMuted, setIsCallMuted] = useState(false);
+  const [isCallVideoOff, setIsCallVideoOff] = useState(false);
+  const [callDuration, setCallDuration] = useState(0);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const ambientNodesRef = useRef<any[]>([]);
@@ -501,6 +510,39 @@ export default function VirtualOffice() {
         const { id, x, y } = payload.payload;
         if (id !== loggedInUserId) {
           setEmployees(prev => prev.map(emp => emp.id === id ? { ...emp, x, y } : emp));
+        }
+      })
+      .on('broadcast', { event: 'private_msg' }, (payload) => {
+        const msg = payload.payload;
+        if (msg.to === loggedInUserId) {
+          setChatMessages(prev => [...prev, msg]);
+        }
+      })
+      .on('broadcast', { event: 'public_msg' }, (payload) => {
+        const msg = payload.payload;
+        if (msg.from !== loggedInUserId) {
+          setChatMessages(prev => [...prev, msg]);
+        }
+      })
+      .on('broadcast', { event: 'private_call_invite' }, (payload) => {
+        const call = payload.payload;
+        if (call.to === loggedInUserId) {
+          setIncomingCall({ from: call.from, fromName: call.fromName });
+        }
+      })
+      .on('broadcast', { event: 'private_call_accept' }, (payload) => {
+        const call = payload.payload;
+        if (call.to === loggedInUserId) {
+          setCallActive(true);
+          setIncomingCall(null);
+        }
+      })
+      .on('broadcast', { event: 'private_call_end' }, (payload) => {
+        const call = payload.payload;
+        if (call.to === loggedInUserId || call.from === loggedInUserId) {
+          setCallActive(false);
+          setPrivateCallTargetId(null);
+          setIncomingCall(null);
         }
       })
       .subscribe(async (status) => {
@@ -888,6 +930,127 @@ export default function VirtualOffice() {
       x: boardZone.x + 40 + (i % 4) * 60,
       y: boardZone.y + 80 + Math.floor(i / 4) * 60
     })));
+  };
+
+  // Call duration counter
+  useEffect(() => {
+    let interval: any;
+    if (callActive) {
+      setCallDuration(0);
+      interval = setInterval(() => {
+        setCallDuration(prev => prev + 1);
+      }, 1000);
+    } else {
+      setCallDuration(0);
+    }
+    return () => clearInterval(interval);
+  }, [callActive]);
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleSendChatMessage = (text: string, targetId: string) => {
+    if (!channelRef.current) return;
+    const isPrivate = targetId !== 'all';
+    const targetEmployee = targetId === 'spatial_bubble' ? spatialBubbleTarget : employees.find(emp => emp.id === targetId);
+
+    const newMsg = {
+      id: Date.now().toString(),
+      author: currentUser?.name || 'موظف',
+      text: text,
+      time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+      isPrivate: isPrivate || targetId === 'spatial_bubble',
+      recipientName: targetEmployee ? targetEmployee.name : undefined,
+      from: loggedInUserId,
+      to: targetId
+    };
+
+    if (isPrivate && targetEmployee) {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'private_msg',
+        payload: newMsg
+      });
+    } else {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'public_msg',
+        payload: newMsg
+      });
+    }
+
+    setChatMessages(prev => [...prev, newMsg]);
+  };
+
+  const startPrivateCall = (targetId: string) => {
+    if (!channelRef.current) return;
+    const target = employees.find(emp => emp.id === targetId);
+    if (!target) return;
+
+    setPrivateCallTargetId(targetId);
+    setCallActive(false);
+    setIncomingCall(null);
+
+    channelRef.current.send({
+      type: 'broadcast',
+      event: 'private_call_invite',
+      payload: {
+        from: loggedInUserId,
+        fromName: currentUser?.name || 'زميلك',
+        to: targetId
+      }
+    });
+  };
+
+  const acceptPrivateCall = () => {
+    if (!incomingCall || !channelRef.current) return;
+    
+    setPrivateCallTargetId(incomingCall.from);
+    setCallActive(true);
+    setIncomingCall(null);
+
+    channelRef.current.send({
+      type: 'broadcast',
+      event: 'private_call_accept',
+      payload: {
+        from: loggedInUserId,
+        to: incomingCall.from
+      }
+    });
+  };
+
+  const declinePrivateCall = () => {
+    if (!incomingCall || !channelRef.current) return;
+
+    channelRef.current.send({
+      type: 'broadcast',
+      event: 'private_call_end',
+      payload: {
+        from: loggedInUserId,
+        to: incomingCall.from
+      }
+    });
+
+    setIncomingCall(null);
+  };
+
+  const endPrivateCall = () => {
+    if (!privateCallTargetId || !channelRef.current) return;
+
+    channelRef.current.send({
+      type: 'broadcast',
+      event: 'private_call_end',
+      payload: {
+        from: loggedInUserId,
+        to: privateCallTargetId
+      }
+    });
+
+    setCallActive(false);
+    setPrivateCallTargetId(null);
   };
 
   // Determine dynamic blueprint background mapping based on companySize choice and theme
@@ -1461,6 +1624,9 @@ export default function VirtualOffice() {
         onCreateCompanyClick={() => {}}
         spatialBubbleTarget={spatialBubbleTarget}
         onInviteClick={() => setInviteOpen(true)}
+        chatMessages={chatMessages}
+        onSendChat={handleSendChatMessage}
+        onStartPrivateCall={startPrivateCall}
       />
 
       {/* ═══ INVITE TEAM MODAL ═══ */}
@@ -1469,6 +1635,117 @@ export default function VirtualOffice() {
         onClose={() => setInviteOpen(false)} 
         companyName={companyName}
       />
+
+      {/* ═══ INCOMING PRIVATE CALL DIALOG ═══ */}
+      {incomingCall && (
+        <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-6 z-50 animate-fade-in">
+          <div className="bg-slate-900 border border-emerald-500/30 rounded-2xl w-full max-w-sm p-6 text-center relative shadow-2xl shadow-emerald-500/10">
+            <div className="w-20 h-20 mx-auto bg-emerald-500/15 border border-emerald-400/40 rounded-full flex items-center justify-center mb-4 animate-pulse">
+              <Phone className="w-10 h-10 text-emerald-400 animate-[bounce_1s_infinite]" />
+            </div>
+            
+            <h3 className="text-xl font-bold text-white mb-1">مكالمة خاصة واردة</h3>
+            <p className="text-sm text-slate-400 mb-6">يتصل بك الموظف <strong className="text-white">{incomingCall.fromName}</strong> بشكل خاص.</p>
+            
+            <div className="flex gap-4">
+              <button 
+                onClick={declinePrivateCall}
+                className="flex-1 py-3 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl transition-all text-sm flex items-center justify-center gap-2 shadow-lg shadow-rose-600/20"
+              >
+                <PhoneOff className="w-4 h-4" /> رفض
+              </button>
+              <button 
+                onClick={acceptPrivateCall}
+                className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-all text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20"
+              >
+                <PhoneCall className="w-4 h-4" /> قبول
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ ACTIVE PRIVATE CALL OVERLAY ═══ */}
+      {(callActive || privateCallTargetId) && !incomingCall && (
+        <div className="absolute bottom-6 right-6 w-96 bg-slate-900/90 backdrop-blur-2xl border border-white/10 rounded-2xl p-5 shadow-2xl z-45 animate-fade-in-up">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-emerald-500 animate-ping" />
+              <span className="text-xs font-bold text-slate-300">مكالمة خاصة نشطة</span>
+            </div>
+            <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
+              {callActive ? formatDuration(callDuration) : 'جاري الاتصال...'}
+            </span>
+          </div>
+
+          <div className="bg-slate-950/60 rounded-xl p-4 border border-white/5 flex items-center justify-center flex-col text-center mb-4 relative min-h-[140px] overflow-hidden">
+            {/* Webcam / Profile preview */}
+            {!isCallVideoOff ? (
+              <div className="absolute inset-0 bg-slate-900 flex items-center justify-center">
+                <div className="w-full h-full bg-gradient-to-br from-indigo-950 to-slate-950 flex flex-col items-center justify-center relative">
+                  <div className="w-16 h-16 rounded-full bg-indigo-500/15 border border-indigo-400/30 flex items-center justify-center mb-2">
+                    <User className="w-8 h-8 text-indigo-300" />
+                  </div>
+                  <span className="text-xs text-indigo-200 font-bold">
+                    {employees.find(e => e.id === privateCallTargetId)?.name || 'زميلك'}
+                  </span>
+                  <span className="text-[10px] text-indigo-400 mt-1">Simulated private stream</span>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="w-16 h-16 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center mb-2">
+                  <span className="text-lg font-bold text-white">
+                    {(employees.find(e => e.id === privateCallTargetId)?.name || 'م').charAt(0)}
+                  </span>
+                </div>
+                <h4 className="text-sm font-bold text-white mb-1">
+                  {employees.find(e => e.id === privateCallTargetId)?.name || 'موظف'}
+                </h4>
+                <p className="text-[10px] text-slate-500">
+                  {employees.find(e => e.id === privateCallTargetId)?.role || 'Employee'}
+                </p>
+              </>
+            )}
+          </div>
+
+          {/* Controls */}
+          <div className="flex justify-center gap-3">
+            <button 
+              onClick={() => setIsCallMuted(!isCallMuted)}
+              className={clsx(
+                "p-3 rounded-xl transition-all border",
+                isCallMuted 
+                  ? "bg-rose-500/20 border-rose-500/40 text-rose-400" 
+                  : "bg-slate-800 border-white/10 text-white hover:bg-slate-750"
+              )}
+              title={isCallMuted ? "إلغاء كتم الصوت" : "كتم الصوت"}
+            >
+              {isCallMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+            </button>
+            
+            <button 
+              onClick={() => setIsCallVideoOff(!isCallVideoOff)}
+              className={clsx(
+                "p-3 rounded-xl transition-all border",
+                isCallVideoOff 
+                  ? "bg-rose-500/20 border-rose-500/40 text-rose-400" 
+                  : "bg-slate-800 border-white/10 text-white hover:bg-slate-750"
+              )}
+              title={isCallVideoOff ? "تشغيل الكاميرا" : "إيقاف الكاميرا"}
+            >
+              {isCallVideoOff ? <VideoOff className="w-5 h-5" /> : <Video className="w-5 h-5" />}
+            </button>
+
+            <button 
+              onClick={endPrivateCall}
+              className="p-3 bg-rose-600 hover:bg-rose-500 text-white border border-rose-500/40 rounded-xl transition-all shadow-lg shadow-rose-600/10 flex items-center gap-2 font-bold text-xs px-5"
+            >
+              <PhoneOff className="w-4 h-4" /> إنهاء المكالمة
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Termination Modal */}
       {terminateEmployee && (
