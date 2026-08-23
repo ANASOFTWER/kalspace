@@ -1745,6 +1745,7 @@ export default function VirtualOffice() {
         onTabChange={setSidebarTab}
         defaultMessageTarget={defaultMessageTarget}
         unreadCount={unreadMessages.length}
+        onClearChat={() => setChatMessages([])}
       />
 
       {/* FLOATING CHAT TOAST NOTIFICATION */}

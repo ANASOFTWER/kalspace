@@ -27,6 +27,7 @@ interface OfficeSidebarProps {
   onTabChange?: (tab: 'people' | 'chat' | 'rooms') => void;
   defaultMessageTarget?: string;
   unreadCount?: number;
+  onClearChat?: () => void;
 }
 
 export default function OfficeSidebar({ 
@@ -51,6 +52,7 @@ export default function OfficeSidebar({
   onTabChange,
   defaultMessageTarget,
   unreadCount = 0,
+  onClearChat,
 }: OfficeSidebarProps) {
   const activeEmployees = employees.filter(emp => !emp.is_terminated);
   
@@ -306,9 +308,20 @@ export default function OfficeSidebar({
          )}
 
          {activeTab === 'chat' && (
-           <div className="flex flex-col h-full">
-              <div className="flex-1 overflow-y-auto space-y-3 pr-1 mb-4">
-                 {displayedMessages.map(msg => (
+            <div className="flex flex-col h-full">
+               <div className="flex justify-between items-center border-b border-white/5 pb-2 mb-3 shrink-0" dir="rtl">
+                 <h3 className="text-xs font-bold text-slate-400">المحادثات</h3>
+                 {onClearChat && (
+                   <button 
+                     onClick={onClearChat}
+                     className="px-2.5 py-1 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-[10px] text-red-400 hover:text-red-300 font-bold rounded-lg transition-all"
+                   >
+                     مسح الدردشة
+                   </button>
+                 )}
+               </div>
+               <div className="flex-1 overflow-y-auto space-y-3 pr-1 mb-4">
+                  {displayedMessages.map(msg => (
                    <div key={msg.id} className={`p-2.5 border rounded-xl ${msg.isPrivate ? 'bg-indigo-900/40 border-indigo-500/50' : 'bg-slate-900/40 border-slate-800'}`}>
                       <div className="flex items-baseline justify-between mb-1">
                          <span className="text-[10px] font-bold text-slate-300">
