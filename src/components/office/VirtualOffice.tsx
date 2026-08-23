@@ -472,8 +472,15 @@ export default function VirtualOffice() {
             setRealCompanyId(currentCompanyId);
             
             // Force shared room on localhost for multi-tab/browser local testing. Use real company_id in production.
-            const isLocalhost = typeof window !== 'undefined' && 
-              (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+            const isLocalhost = typeof window !== 'undefined' && (
+              window.location.hostname === 'localhost' || 
+              window.location.hostname === '127.0.0.1' || 
+              window.location.hostname === '[::1]' ||
+              window.location.hostname.startsWith('192.168.') ||
+              window.location.hostname.startsWith('10.') ||
+              window.location.hostname.startsWith('172.') ||
+              window.location.hostname.endsWith('.local')
+            );
             setCompanyId(isLocalhost ? 'kalspace_shared_demo_room' : (currentCompanyId || 'kalspace_shared_demo_room'));
 
             // Check if user is currently punched in
@@ -1800,6 +1807,8 @@ export default function VirtualOffice() {
         isOpen={inviteOpen} 
         onClose={() => setInviteOpen(false)} 
         companyName={companyName}
+        companyId={realCompanyId || ''}
+        locale={locale}
       />
 
       {/* ═══ INCOMING PRIVATE CALL DIALOG ═══ */}

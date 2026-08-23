@@ -1,27 +1,70 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Copy, Mail, Check, Loader2, QrCode } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '@/lib/supabase';
 
 interface InviteModalProps {
   isOpen: boolean;
   onClose: () => void;
   companyName: string;
+  companyId?: string;
+  locale?: string;
 }
 
-export default function InviteModal({ isOpen, onClose, companyName }: InviteModalProps) {
+export default function InviteModal({ isOpen, onClose, companyName, companyId, locale = 'ar' }: InviteModalProps) {
   const [copied, setCopied] = useState(false);
   const [emails, setEmails] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [generatedLink, setGeneratedLink] = useState('');
 
-  const inviteLink = typeof window !== 'undefined' 
-    ? `${window.location.origin}/ar/invite/${encodeURIComponent(companyName.toLowerCase().replace(/\s+/g, '-'))}`
-    : `https://kalspace.com/invite/${encodeURIComponent(companyName.toLowerCase().replace(/\s+/g, '-'))}`;
+  useEffect(() => {
+    async function generateInviteLink() {
+      if (!isOpen) return;
+
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://kalspace.com';
+      
+      if (!companyId || companyId === 'kalspace_shared_demo_room') {
+        // Fallback for local testing / demo mode
+        setGeneratedLink(`${origin}/${locale}/signup?token=demo-uuid-token-12345`);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        // Create a real invitation row in Supabase
+        const { data, error } = await supabase
+          .from('invitations')
+          .insert({
+            email: `guest-${Date.now()}@temp.com`, // Unique temp email
+            role: 'employee',
+            company_id: companyId
+          })
+          .select()
+          .single();
+
+        if (error || !data) {
+          throw error || new Error('Failed to create invitation');
+        }
+
+        setGeneratedLink(`${origin}/${locale}/signup?token=${data.token}`);
+      } catch (err) {
+        console.error('Error generating invite link in modal:', err);
+        // Fallback to basic company setup signup link
+        setGeneratedLink(`${origin}/${locale}/signup`);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    generateInviteLink();
+  }, [isOpen, companyId, locale]);
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(inviteLink);
+    if (!generatedLink) return;
+    navigator.clipboard.writeText(generatedLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -72,7 +115,7 @@ export default function InviteModal({ isOpen, onClose, companyName }: InviteModa
                   <input 
                     type="text" 
                     readOnly 
-                    value={inviteLink}
+                    value={generatedLink}
                     className="flex-1 bg-transparent text-xs text-left text-slate-300 outline-none select-all px-2 font-mono"
                   />
                   <button 
