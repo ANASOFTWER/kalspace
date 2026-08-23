@@ -35,6 +35,7 @@ export default function OfficeSidebar({
   onInviteClick,
 }: OfficeSidebarProps) {
   const [activeTab, setActiveTab] = useState<'people' | 'chat' | 'rooms'>('people');
+  const activeEmployees = employees.filter(emp => !emp.is_terminated);
   
   interface ChatMessage {
     id: string;
@@ -152,7 +153,7 @@ export default function OfficeSidebar({
          {activeTab === 'people' && (
            <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">In this space ({employees.length})</h3>
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">In this space ({activeEmployees.length})</h3>
                 {canManageEmployees && (
                   <div className="flex gap-1">
                     <button 
@@ -182,7 +183,7 @@ export default function OfficeSidebar({
                 )}
               </div>
               <div className="space-y-2">
-                {employees.map(emp => (
+                {activeEmployees.map(emp => (
                   <div key={emp.id} className="p-3 rounded-xl bg-slate-900/50 border border-slate-800 flex items-center justify-between gap-3">
                      <div className="flex items-center gap-2 min-w-0">
                         <div className="relative shrink-0">
@@ -272,7 +273,7 @@ export default function OfficeSidebar({
                      <option value="spatial_bubble">🔒 Private Spatial Bubble (With {spatialBubbleTarget.name})</option>
                    )}
                    <optgroup label="Direct Message (Private)">
-                     {employees.filter(e => e.id !== currentUser.id).map(emp => (
+                     {activeEmployees.filter(e => e.id !== currentUser.id).map(emp => (
                        <option key={emp.id} value={emp.id}>{emp.name} ({emp.role})</option>
                      ))}
                    </optgroup>

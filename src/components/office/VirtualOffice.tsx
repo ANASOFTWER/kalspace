@@ -144,13 +144,17 @@ export default function VirtualOffice() {
   const [ceoEditName, setCeoEditName] = useState('');
   const [ceoEditImage, setCeoEditImage] = useState('');
 
-  // Add Employee Custom Modal State
   const [showAddEmployeeModal, setShowAddEmployeeModal] = useState(false);
   const [newEmpId, setNewEmpId] = useState('');
   const [newEmpName, setNewEmpName] = useState('');
   const [newEmpRole, setNewEmpRole] = useState('');
   const [newEmpDept, setNewEmpDept] = useState('Engineering');
   const [newEmpImage, setNewEmpImage] = useState('');
+
+  // Termination State
+  const [terminateEmployee, setTerminateEmployee] = useState<Employee | null>(null);
+  const [terminationReason, setTerminationReason] = useState('');
+  const [terminationLoading, setTerminationLoading] = useState(false);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const ambientNodesRef = useRef<any[]>([]);
@@ -343,7 +347,9 @@ export default function VirtualOffice() {
               status: 'online',
               x: 80,
               y: 120,
-              profileImage: profile.avatar_url
+              profileImage: profile.avatar_url,
+              is_terminated: profile.is_terminated,
+              termination_reason: profile.termination_reason
             };
             setLoggedInUserId(profile.id);
             let currentCompanyId = profile.company_id;
@@ -467,7 +473,7 @@ export default function VirtualOffice() {
         Object.keys(newState).forEach(key => {
           if (newState[key] && newState[key].length > 0) {
             const userState = newState[key][0] as unknown as Employee;
-            if (userState.id !== loggedInUserId) {
+            if (userState.id !== loggedInUserId && !userState.is_terminated) {
               onlineUsers.push(userState);
             }
           }
@@ -594,8 +600,9 @@ export default function VirtualOffice() {
   const restroomZone = roomZones.find(z => z.id === 'zone_restroom');
   
   const employeesWithRestroomLogic = useMemo(() => {
-    if (!restroomZone) return employees;
-    return employees.map(emp => {
+    const active = employees.filter(emp => !emp.is_terminated);
+    if (!restroomZone) return active;
+    return active.map(emp => {
       const inRestroom = (
         emp.x >= restroomZone.x - 20 &&
         emp.x <= restroomZone.x + restroomZone.width &&
@@ -612,6 +619,7 @@ export default function VirtualOffice() {
   const restroomOccupiedCount = useMemo(() => {
     if (!restroomZone) return 0;
     return employees.filter(emp => 
+      !emp.is_terminated &&
       emp.x >= restroomZone.x - 20 &&
       emp.x <= restroomZone.x + restroomZone.width &&
       emp.y >= restroomZone.y - 20 &&
@@ -821,8 +829,45 @@ export default function VirtualOffice() {
   };
 
   const handleDeleteEmployee = (id: string) => {
-    const updated = employees.filter(e => e.id !== id);
-    saveEmployees(updated);
+    const emp = employees.find(e => e.id === id);
+    if (!emp) return;
+    if (emp.id.length < 5) {
+      // Mock user, delete immediately
+      const updated = employees.filter(e => e.id !== id);
+      saveEmployees(updated);
+    } else {
+      // Real user, open modal for termination reason
+      setTerminateEmployee(emp);
+      setTerminationReason('');
+    }
+  };
+
+  const handleTerminateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!terminateEmployee) return;
+    setTerminationLoading(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ 
+          is_terminated: true, 
+          termination_reason: terminationReason 
+        })
+        .eq('id', terminateEmployee.id);
+
+      if (error) throw error;
+
+      // Filter out of local list
+      const updated = employees.filter(emp => emp.id !== terminateEmployee.id);
+      saveEmployees(updated);
+      setTerminateEmployee(null);
+      setTerminationReason('');
+    } catch (err) {
+      console.error('Error terminating employee:', err);
+      alert('حدث خطأ أثناء فصل الموظف. يرجى المحاولة مرة أخرى.');
+    } finally {
+      setTerminationLoading(false);
+    }
   };
 
   const handleCallMeeting = () => {
@@ -1413,6 +1458,64 @@ export default function VirtualOffice() {
         onClose={() => setInviteOpen(false)} 
         companyName={companyName}
       />
+
+      {/* Termination Modal */}
+      {terminateEmployee && (
+        <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-6 z-50">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 relative animate-fade-in-up">
+            <button
+              onClick={() => setTerminateEmployee(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-4 text-danger">
+              <AlertTriangle className="w-6 h-6 shrink-0 text-rose-500" />
+              <h3 className="text-xl font-bold text-white">إنهاء خدمات موظف</h3>
+            </div>
+            
+            <p className="text-sm text-slate-400 mb-6">
+              أنت على وشك فصل الموظف <strong className="text-white">{terminateEmployee.name}</strong> من الشركة. سيتم حجب دخوله عن النظام فوراً وعرض سبب الفصل له بشكل خاص.
+            </p>
+
+            <form onSubmit={handleTerminateSubmit} className="space-y-4 text-right">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">أسباب الفصل / إنهاء الخدمة</label>
+                <textarea
+                  value={terminationReason}
+                  onChange={(e) => setTerminationReason(e.target.value)}
+                  required
+                  rows={4}
+                  placeholder="اكتب أسباب إنهاء الخدمة بالتفصيل هنا..."
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-danger transition-colors text-sm resize-none"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setTerminateEmployee(null)}
+                  className="flex-1 py-2.5 bg-slate-850 hover:bg-slate-800 text-white font-semibold rounded-lg transition-colors text-sm"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  disabled={terminationLoading}
+                  className="flex-1 py-2.5 bg-danger hover:bg-danger/90 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 text-sm"
+                >
+                  {terminationLoading ? (
+                    <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    'تأكيد فصل الموظف'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ═══ CEO PROFILE REGISTRATION/EDIT MODAL ═══ */}
       <AnimatePresence>

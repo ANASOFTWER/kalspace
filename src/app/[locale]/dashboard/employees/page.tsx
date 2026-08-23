@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Search, MessageSquare, Phone, Plus, X, Copy, Check, AlertTriangle } from 'lucide-react';
+import { Search, MessageSquare, Phone, Plus, X, Copy, Check, AlertTriangle, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useLocale } from 'next-intl';
 
@@ -11,6 +11,8 @@ interface Employee {
   role: string;
   company_id: string | null;
   status?: string; // mocked status
+  is_terminated?: boolean;
+  termination_reason?: string;
 }
 
 const MOCK_EMPLOYEES: Employee[] = [];
@@ -37,6 +39,7 @@ export default function EmployeesPage() {
   const [isDemo, setIsDemo] = useState(false);
   const [userRole, setUserRole] = useState<string>('employee');
   const [userCompanyId, setUserCompanyId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   // Invitation Modal State
   const [isInviteOpen, setIsInviteOpen] = useState(false);
@@ -46,6 +49,11 @@ export default function EmployeesPage() {
   const [inviteError, setInviteError] = useState('');
   const [generatedLink, setGeneratedLink] = useState('');
   const [copied, setCopied] = useState(false);
+
+  // Termination Modal State
+  const [terminateEmployee, setTerminateEmployee] = useState<Employee | null>(null);
+  const [terminationReason, setTerminationReason] = useState('');
+  const [terminationLoading, setTerminationLoading] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -61,6 +69,8 @@ export default function EmployeesPage() {
           setUserRole('admin'); // allow testing invitation in demo mode
           return;
         }
+
+        setCurrentUserId(session.user.id);
 
         // Fetch current user profile to verify company and role
         const { data: profile, error: profileError } = await supabase
@@ -88,10 +98,12 @@ export default function EmployeesPage() {
 
         // Assign some dummy presence status for visual interest
         const statuses = ['online', 'busy', 'meeting', 'offline'];
-        const mappedTeam = (team || []).map((member, index) => ({
-          ...member,
-          status: statuses[index % statuses.length],
-        }));
+        const mappedTeam = (team || [])
+          .filter(member => !member.is_terminated)
+          .map((member, index) => ({
+            ...member,
+            status: statuses[index % statuses.length],
+          }));
 
         setEmployees(mappedTeam);
         setIsDemo(false);
@@ -156,6 +168,39 @@ export default function EmployeesPage() {
     navigator.clipboard.writeText(generatedLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleTerminateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!terminateEmployee) return;
+    setTerminationLoading(true);
+    try {
+      if (isDemo) {
+        setEmployees(prev => prev.filter(emp => emp.id !== terminateEmployee.id));
+        setTerminateEmployee(null);
+        setTerminationReason('');
+        return;
+      }
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({ 
+          is_terminated: true, 
+          termination_reason: terminationReason 
+        })
+        .eq('id', terminateEmployee.id);
+
+      if (error) throw error;
+
+      setEmployees(prev => prev.filter(emp => emp.id !== terminateEmployee.id));
+      setTerminateEmployee(null);
+      setTerminationReason('');
+    } catch (err) {
+      console.error('Error terminating employee:', err);
+      alert('حدث خطأ أثناء فصل الموظف. يرجى المحاولة مرة أخرى.');
+    } finally {
+      setTerminationLoading(false);
+    }
   };
 
   const filtered = employees.filter(emp =>
@@ -240,6 +285,18 @@ export default function EmployeesPage() {
                 <button className="p-2 bg-white/5 hover:bg-success/20 rounded-lg text-slate-400 hover:text-success transition-colors">
                   <Phone className="w-4 h-4" />
                 </button>
+                {(userRole === 'admin' || userRole === 'manager' || userRole === 'hr') && emp.id !== currentUserId && (
+                  <button 
+                    onClick={() => {
+                      setTerminateEmployee(emp);
+                      setTerminationReason('');
+                    }}
+                    className="p-2 bg-white/5 hover:bg-danger/20 rounded-lg text-slate-400 hover:text-danger transition-colors"
+                    title="إنهاء الخدمات"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -338,6 +395,64 @@ export default function EmployeesPage() {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Termination Modal */}
+      {terminateEmployee && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 relative animate-fade-in-up">
+            <button
+              onClick={() => setTerminateEmployee(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-4 text-danger">
+              <AlertTriangle className="w-6 h-6 shrink-0" />
+              <h3 className="text-xl font-bold text-white">إنهاء خدمات موظف</h3>
+            </div>
+            
+            <p className="text-sm text-slate-400 mb-6">
+              أنت على وشك فصل الموظف <strong className="text-white">{terminateEmployee.full_name}</strong> من الشركة. سيتم حجب دخوله عن النظام فوراً وعرض سبب الفصل له بشكل خاص.
+            </p>
+
+            <form onSubmit={handleTerminateSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">أسباب الفصل / إنهاء الخدمة</label>
+                <textarea
+                  value={terminationReason}
+                  onChange={(e) => setTerminationReason(e.target.value)}
+                  required
+                  rows={4}
+                  placeholder="اكتب أسباب إنهاء الخدمة بالتفصيل هنا..."
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-danger transition-colors text-sm resize-none"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setTerminateEmployee(null)}
+                  className="flex-1 py-2.5 bg-slate-850 hover:bg-slate-850 text-white font-semibold rounded-lg transition-colors text-sm"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  disabled={terminationLoading}
+                  className="flex-1 py-2.5 bg-danger hover:bg-danger/90 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 text-sm"
+                >
+                  {terminationLoading ? (
+                    <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    'تأكيد فصل الموظف'
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -22,6 +22,8 @@ export interface Employee {
   isHidden?: boolean;
   isPrivate?: boolean;
   profileImage?: string;
+  is_terminated?: boolean;
+  termination_reason?: string;
 }
 
 const statusColors = {
