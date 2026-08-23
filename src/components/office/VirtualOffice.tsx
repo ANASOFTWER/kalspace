@@ -142,6 +142,19 @@ export default function VirtualOffice() {
   const [movingIconId, setMovingIconId] = useState<string | null>(null);
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [zoomOrigin, setZoomOrigin] = useState<{ x: number; y: number }>({ x: 50, y: 50 });
+  
+  // Unique session-based fallback ID for guest/demo testing in different tabs
+  const [fallbackUserId] = useState(() => {
+    if (typeof window !== 'undefined') {
+      let id = sessionStorage.getItem('kalspace_fallback_uid');
+      if (!id) {
+        id = 'guest_' + Math.random().toString(36).substring(2, 11);
+        sessionStorage.setItem('kalspace_fallback_uid', id);
+      }
+      return id;
+    }
+    return 'guest_loading';
+  });
   const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const lastPanPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -480,7 +493,7 @@ export default function VirtualOffice() {
           }
         } else {
           const defaultCEO: Employee = {
-            id: '1',
+            id: fallbackUserId,
             name: localStorage.getItem('ceo_name') || 'أحمد السبيعي',
             role: 'CEO',
             department: 'Management',
@@ -489,11 +502,11 @@ export default function VirtualOffice() {
             y: 120,
             profileImage: localStorage.getItem('ceo_image') || undefined
           };
-          setLoggedInUserId('1');
+          setLoggedInUserId(fallbackUserId);
           setCompanyId('kalspace_shared_demo_room'); // Set companyId for mock user too so presence channel connects
           
           if (localEmployees.length > 0) {
-            const others = localEmployees.filter(emp => emp.id !== '1');
+            const others = localEmployees.filter(emp => emp.id !== fallbackUserId);
             setEmployees([defaultCEO, ...others]);
           } else {
             setEmployees([defaultCEO, ...mockUserList]);
@@ -504,7 +517,7 @@ export default function VirtualOffice() {
         const count = companySize === '6-10' ? 5 : companySize === '11-15' ? 6 : companySize === '16+' ? 7 : 4;
         const mockUserList = EXTRA_MOCK_EMPLOYEES.slice(0, count - 1);
         const defaultCEO: Employee = {
-          id: '1',
+          id: fallbackUserId,
           name: localStorage.getItem('ceo_name') || 'أحمد السبيعي',
           role: 'CEO',
           department: 'Management',
@@ -513,7 +526,7 @@ export default function VirtualOffice() {
           y: 120,
           profileImage: localStorage.getItem('ceo_image') || undefined
         };
-        setLoggedInUserId('1');
+        setLoggedInUserId(fallbackUserId);
         setCompanyId('kalspace_shared_demo_room');
         setEmployees([defaultCEO, ...mockUserList]);
       }

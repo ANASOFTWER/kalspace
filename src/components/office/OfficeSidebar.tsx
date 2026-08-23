@@ -81,7 +81,7 @@ export default function OfficeSidebar({
   const setActiveTab = onTabChange || setActiveTabState;
 
   // RBAC permissions
-  const isManager = currentUser.role === 'CEO';
+  const isManager = currentUser.role === 'CEO' || currentUser.role === 'admin' || currentUser.role === 'manager';
   const isHR = currentUser.department === 'HR';
   const canManageEmployees = isManager || isHR;
 
@@ -343,7 +343,7 @@ export default function OfficeSidebar({
            <div className="space-y-4">
               <div className="flex justify-between items-center border-b border-white/5 pb-2">
                 <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Office Floors</h3>
-                {onCreateCompanyClick && (
+                {onCreateCompanyClick && isManager && (
                   <button 
                     onClick={onCreateCompanyClick}
                     className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 rounded-lg text-[10px] text-slate-950 font-bold transition-all shadow-lg shadow-amber-500/10 flex items-center gap-1"
