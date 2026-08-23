@@ -493,8 +493,8 @@ export default function VirtualOffice() {
              }
              return onlineUser;
            });
-           const prevLocal = prev.filter(emp => emp.id === loggedInUserId || emp.id.length < 5);
-           return [...prevLocal, ...mergedUsers];
+            const prevLocal = prev.filter(emp => emp.id === loggedInUserId || emp.id.length < 5 || emp.id === 'loading');
+            return [...prevLocal, ...mergedUsers];
         });
       })
       .on('broadcast', { event: 'move' }, (payload) => {
@@ -551,7 +551,15 @@ export default function VirtualOffice() {
     return () => clearInterval(timer);
   }, [pomodoroActive, pomodoroSeconds]);
 
-  const currentUser = employees.find(emp => emp.id === loggedInUserId) || employees[0];
+  const currentUser = employees.find(emp => emp.id === loggedInUserId) || employees[0] || {
+    id: 'loading',
+    name: 'جاري التحميل...',
+    role: 'Employee',
+    department: '',
+    status: 'online',
+    x: 80,
+    y: 120,
+  };
   const canEditMap = currentUser?.role === 'CEO';
 
   // Broadcast our movement
@@ -1053,18 +1061,18 @@ export default function VirtualOffice() {
             <div className="flex items-center gap-2.5 bg-slate-900/90 backdrop-blur-xl border border-white/15 p-1.5 rounded-xl shadow-lg">
               <div className="text-right hidden sm:block">
                 <div className="text-xs font-black text-white flex items-center gap-1">
-                  {currentUser.role === 'CEO' && <span className="text-amber-400">👑</span>}
-                  {currentUser.name}
+                  {currentUser?.role === 'CEO' && <span className="text-amber-400">👑</span>}
+                  {currentUser?.name}
                 </div>
                 <div className="text-[10px] text-cyan-400 font-bold bg-transparent pt-0.5">
-                  {currentUser.role}
+                  {currentUser?.role}
                 </div>
               </div>
               <div className="w-8 h-8 rounded-lg overflow-hidden border border-white/20 flex items-center justify-center bg-gradient-to-br from-cyan-500 to-blue-600 shrink-0">
-                {currentUser.profileImage ? (
+                {currentUser?.profileImage ? (
                   <img src={currentUser.profileImage} alt={currentUser.name} className="w-full h-full object-cover" />
                 ) : (
-                  <span className="font-bold text-white text-xs">{currentUser.name.charAt(0)}</span>
+                  <span className="font-bold text-white text-xs">{currentUser?.name?.charAt(0) || 'م'}</span>
                 )}
               </div>
             </div>
