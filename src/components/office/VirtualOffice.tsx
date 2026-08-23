@@ -437,10 +437,8 @@ export default function VirtualOffice() {
             
             setRealCompanyId(currentCompanyId);
             
-            // FOR TESTING: Force all users into the same presence channel regardless of their real company_id
-            currentCompanyId = 'kalspace_shared_demo_room';
-            
-            setCompanyId(currentCompanyId);
+            // Use real company_id for the presence channel so same-company employees see each other
+            setCompanyId(currentCompanyId || 'kalspace_shared_demo_room');
 
             // Check if user is currently punched in
             const { data: activeAttendance } = await supabase
