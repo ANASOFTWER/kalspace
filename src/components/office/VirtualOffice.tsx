@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Avatar, { Employee } from './Avatar';
 import OfficeSidebar from './OfficeSidebar';
 import InviteModal from './InviteModal';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { 
   Coffee, HelpCircle, Play, 
   Plus, Sparkles, X, Award, ScreenShare, ArrowRightLeft,
@@ -79,6 +79,7 @@ const OFFICE_DOORS: OfficeDoor[] = [
 
 export default function VirtualOffice() {
   const t = useTranslations('nav');
+  const locale = useLocale();
   const [employees, setEmployees] = useState<Employee[]>([{
     id: 'loading',
     name: 'جاري التحميل...',
