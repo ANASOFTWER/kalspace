@@ -106,9 +106,9 @@ export default function LandingPage() {
   // Testimonials
   const [testIdx, setTestIdx] = useState(0);
   const testimonials = [
-    { name: t('testimonial1_name'), role: t('testimonial1_role'), text: t('testimonial1_text'), stars: 5, avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=256&h=256&q=80' },
-    { name: t('testimonial2_name'), role: t('testimonial2_role'), text: t('testimonial2_text'), stars: 5, avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&h=256&q=80' },
-    { name: t('testimonial3_name'), role: t('testimonial3_role'), text: t('testimonial3_text'), stars: 5, avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=256&h=256&q=80' },
+    { name: t('testimonial1_name'), role: t('testimonial1_role'), text: t('testimonial1_text'), stars: 5, avatar: '/avatar-khaliji-1.jpg' },
+    { name: t('testimonial2_name'), role: t('testimonial2_role'), text: t('testimonial2_text'), stars: 5, avatar: '/avatar-khaliji-2.jpg' },
+    { name: t('testimonial3_name'), role: t('testimonial3_role'), text: t('testimonial3_text'), stars: 5, avatar: '/avatar-khaliji-3.jpg' },
   ];
   useEffect(() => {
     const id = setInterval(() => setTestIdx(p => (p + 1) % testimonials.length), 6000);
