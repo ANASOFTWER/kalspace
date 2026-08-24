@@ -960,6 +960,98 @@ export default function VirtualOffice() {
     return nearby || null;
   }, [employees, currentUser?.x, currentUser?.y, loggedInUserId]);
 
+  // ═══ SPATIAL AUDIO PROXIMITY ENGINE ═══
+  // Generates a continuous warm tone per nearby colleague; volume scales inversely with distance.
+  const spatialAudioCtxRef = useRef<AudioContext | null>(null);
+  const spatialNodesRef = useRef<Map<string, { osc: OscillatorNode; gain: GainNode }>>(new Map());
+
+  useEffect(() => {
+    if (!currentUser || loggedInUserId === 'loading') return;
+
+    // Lazy-create AudioContext on first proximity event
+    if (!spatialAudioCtxRef.current) {
+      try {
+        const AC = window.AudioContext || (window as any).webkitAudioContext;
+        spatialAudioCtxRef.current = new AC();
+      } catch { return; }
+    }
+    const ctx = spatialAudioCtxRef.current;
+    if (!ctx || ctx.state === 'closed') return;
+    // Resume if suspended (browser autoplay policy)
+    if (ctx.state === 'suspended') ctx.resume();
+
+    const SPATIAL_RANGE = 300;   // px – max hearing distance
+    const MAX_VOLUME = 0.25;     // comfortable cap
+    const activeIds = new Set<string>();
+
+    employees.forEach(emp => {
+      if (emp.id === loggedInUserId) return;
+      if (emp.status === 'offline') return;
+
+      const dist = Math.hypot((currentUser.x || 0) - emp.x, (currentUser.y || 0) - emp.y);
+
+      if (dist < SPATIAL_RANGE) {
+        activeIds.add(emp.id);
+        // Volume: 1 when on top → 0 at SPATIAL_RANGE
+        const volume = Math.max(0, (1 - dist / SPATIAL_RANGE)) * MAX_VOLUME;
+
+        let nodes = spatialNodesRef.current.get(emp.id);
+        if (!nodes) {
+          // Create a warm tone per colleague
+          try {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = 220; // warm A3
+            gain.gain.setValueAtTime(0, ctx.currentTime);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            nodes = { osc, gain };
+            spatialNodesRef.current.set(emp.id, nodes);
+          } catch { return; }
+        }
+        // Smooth ramp to target volume (avoids clicks)
+        nodes.gain.gain.cancelScheduledValues(ctx.currentTime);
+        nodes.gain.gain.setTargetAtTime(volume, ctx.currentTime, 0.15);
+      }
+    });
+
+    // Fade out and remove nodes for colleagues who left range
+    spatialNodesRef.current.forEach((nodes, id) => {
+      if (!activeIds.has(id)) {
+        try {
+          nodes.gain.gain.cancelScheduledValues(ctx.currentTime);
+          nodes.gain.gain.setTargetAtTime(0, ctx.currentTime, 0.1);
+          setTimeout(() => {
+            try { nodes.osc.stop(); } catch {}
+            try { nodes.osc.disconnect(); nodes.gain.disconnect(); } catch {}
+            spatialNodesRef.current.delete(id);
+          }, 500);
+        } catch {
+          spatialNodesRef.current.delete(id);
+        }
+      }
+    });
+
+    // Cleanup on unmount
+    return () => {};
+  }, [employees, currentUser?.x, currentUser?.y, loggedInUserId]);
+
+  // Cleanup spatial audio context on component unmount
+  useEffect(() => {
+    return () => {
+      spatialNodesRef.current.forEach(nodes => {
+        try { nodes.osc.stop(); } catch {}
+        try { nodes.osc.disconnect(); nodes.gain.disconnect(); } catch {}
+      });
+      spatialNodesRef.current.clear();
+      if (spatialAudioCtxRef.current && spatialAudioCtxRef.current.state !== 'closed') {
+        try { spatialAudioCtxRef.current.close(); } catch {}
+      }
+    };
+  }, []);
+
   // Reactive door open/close states based on employee proximity to doorways
   const openDoorsMap = useMemo(() => {
     const openMap: Record<string, boolean> = {};
