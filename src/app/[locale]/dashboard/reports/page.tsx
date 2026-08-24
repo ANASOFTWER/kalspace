@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { BarChart3, TrendingUp, Users, Calendar, Clock, Loader2 } from 'lucide-react';
+import { BarChart3, TrendingUp, Users, Calendar, Clock, Loader2, Download } from 'lucide-react';
 import clsx from 'clsx';
 
 interface DeptStat {
@@ -129,12 +129,74 @@ export default function ReportsPage() {
   }, []);
 
   return (
-    <div className="h-full p-4 md:p-6 flex flex-col animate-fade-in-up">
-      <div className="flex items-center justify-between mb-8">
+    <div className="h-full p-4 md:p-6 flex flex-col animate-fade-in-up" id="reports-print-section">
+      <style>{`
+        @media print {
+          body {
+            background: white !important;
+            color: black !important;
+            visibility: hidden !important;
+          }
+          #reports-print-section, #reports-print-section * {
+            visibility: visible !important;
+          }
+          #reports-print-section {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            background: white !important;
+            color: black !important;
+            padding: 20px !important;
+          }
+          .no-print, button, aside, nav, header {
+            display: none !important;
+            visibility: hidden !important;
+          }
+          .glass-card {
+            background: #f8fafc !important;
+            border: 1px solid #cbd5e1 !important;
+            color: #0f172a !important;
+            box-shadow: none !important;
+            margin-bottom: 20px !important;
+            page-break-inside: avoid !important;
+          }
+          h1, h2, h3, p, span, td, th, div {
+            color: #0f172a !important;
+          }
+          .text-slate-400, .text-slate-300 {
+            color: #475569 !important;
+          }
+          th {
+            background-color: #f1f5f9 !important;
+            border-bottom: 2px solid #cbd5e1 !important;
+            color: #0f172a !important;
+          }
+          tr {
+            border-bottom: 1px solid #e2e8f0 !important;
+            page-break-inside: avoid !important;
+          }
+        }
+      `}</style>
+
+      {/* Print-only corporate header */}
+      <div className="hidden print:block mb-8 border-b-2 border-slate-300 pb-4 text-right" dir="rtl">
+        <h1 className="text-3xl font-bold text-slate-900">تقرير أداء الشركة والإنتاجية</h1>
+        <p className="text-slate-600 mt-1">تاريخ استخراج التقرير: {new Date().toLocaleString('ar-SA')} | نظام مساحة عمل Kalspace</p>
+      </div>
+
+      <div className="flex items-center justify-between mb-8 no-print">
         <div>
           <h1 className="text-2xl font-bold text-white">التقارير (Reports)</h1>
           <p className="text-slate-400">تحليلات الأداء والتقارير العامة للشركة</p>
         </div>
+        <button
+          onClick={() => window.print()}
+          className="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-indigo-600/20 text-sm flex items-center gap-2"
+        >
+          <Download className="w-4 h-4" />
+          تنزيل تقرير PDF
+        </button>
       </div>
 
       {loading ? (
