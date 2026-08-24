@@ -106,9 +106,9 @@ export default function LandingPage() {
   // Testimonials
   const [testIdx, setTestIdx] = useState(0);
   const testimonials = [
-    { name: t('testimonial1_name'), role: t('testimonial1_role'), text: t('testimonial1_text'), stars: 5, avatar: '👨‍💼' },
-    { name: t('testimonial2_name'), role: t('testimonial2_role'), text: t('testimonial2_text'), stars: 5, avatar: '👩‍💻' },
-    { name: t('testimonial3_name'), role: t('testimonial3_role'), text: t('testimonial3_text'), stars: 5, avatar: '👨‍🔬' },
+    { name: t('testimonial1_name'), role: t('testimonial1_role'), text: t('testimonial1_text'), stars: 5, avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=256&h=256&q=80' },
+    { name: t('testimonial2_name'), role: t('testimonial2_role'), text: t('testimonial2_text'), stars: 5, avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&h=256&q=80' },
+    { name: t('testimonial3_name'), role: t('testimonial3_role'), text: t('testimonial3_text'), stars: 5, avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=256&h=256&q=80' },
   ];
   useEffect(() => {
     const id = setInterval(() => setTestIdx(p => (p + 1) % testimonials.length), 6000);
@@ -228,23 +228,7 @@ export default function LandingPage() {
           </motion.div>
         </section>
 
-        {/* ═══ SECTION 2: LOGO TICKER ═══ */}
-        <section className="py-16 border-y border-white/10 bg-white/[0.01]">
-          <p className="text-center text-xs font-bold text-slate-300 uppercase tracking-[0.25em] mb-10">{t('trusted_by')}</p>
-          <div className="relative overflow-hidden">
-            <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-l from-transparent to-[#050510] z-10" />
-            <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-r from-transparent to-[#050510] z-10" />
-            <div className="flex gap-20 items-center whitespace-nowrap" style={{ animation: 'marquee-rtl 40s linear infinite', width: 'max-content' }}>
-              {[...Array(3)].map((_, r) => (
-                <div key={r} className="flex gap-20 items-center">
-                  {['Google', 'Microsoft', 'Amazon', 'Notion', 'Figma', 'Slack', 'Stripe', 'Vercel', 'Linear'].map(n => (
-                    <span key={`${r}-${n}`} className="text-slate-400 font-extrabold text-2xl tracking-wide select-none hover:text-white transition-colors">{n}</span>
-                  ))}
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+        {/* Logo ticker section removed per user request */}
 
         {/* ═══ SECTION 3: FEATURES — Cinematic Tabs ═══ */}
         <section id="features" className="py-32 px-6">
@@ -436,7 +420,13 @@ export default function LandingPage() {
                   transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
                   className="text-center space-y-8 p-10 rounded-3xl border border-white/10 bg-white/[0.03] shadow-2xl"
                 >
-                  <div className="text-5xl">{testimonials[testIdx].avatar}</div>
+                  <div className="flex justify-center">
+                    <img 
+                      src={testimonials[testIdx].avatar} 
+                      alt={testimonials[testIdx].name} 
+                      className="w-24 h-24 rounded-full border-2 border-cyan-400 object-cover shadow-[0_0_20px_rgba(34,211,238,0.4)]"
+                    />
+                  </div>
                   <p className="text-xl md:text-2xl text-slate-100 leading-[1.8] font-normal max-w-2xl mx-auto">
                     &ldquo;{testimonials[testIdx].text}&rdquo;
                   </p>
