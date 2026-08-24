@@ -9,7 +9,8 @@ import {
   ArrowRight, Check, Shield, Lock, Eye, Fingerprint,
   MessageSquare, Video, Users, Zap, ChevronDown,
   Timer, ListChecks, MonitorPlay, Star, Quote,
-  Wifi, Globe, Clock, HeadphonesIcon, Play, Sparkles
+  Wifi, Globe, Clock, HeadphonesIcon, Play, Sparkles,
+  Building, Rocket
 } from 'lucide-react';
 import { motion, AnimatePresence, useInView } from 'framer-motion';
 
@@ -315,15 +316,17 @@ export default function LandingPage() {
 
             <div className="grid md:grid-cols-3 gap-8">
               {[
-                { step: '01', title: t('step1_title'), desc: t('step1_desc'), icon: '🏢' },
-                { step: '02', title: t('step2_title'), desc: t('step2_desc'), icon: '👥' },
-                { step: '03', title: t('step3_title'), desc: t('step3_desc'), icon: '🚀' },
+                { step: '01', title: t('step1_title'), desc: t('step1_desc'), icon: <Building className="w-8 h-8 text-cyan-400" /> },
+                { step: '02', title: t('step2_title'), desc: t('step2_desc'), icon: <Users className="w-8 h-8 text-indigo-400" /> },
+                { step: '03', title: t('step3_title'), desc: t('step3_desc'), icon: <Rocket className="w-8 h-8 text-emerald-400" /> },
               ].map((s, i) => (
                 <RevealSection key={i} delay={i * 0.15}>
                   <div className="relative p-8 rounded-2xl border border-white/10 bg-white/[0.03] hover:border-cyan-500/40 hover:bg-white/[0.06] transition-all duration-500 group shadow-lg">
                     <div className="absolute top-6 left-6 text-6xl font-black text-white/5 leading-none select-none group-hover:text-cyan-500/10 transition-colors">{s.step}</div>
                     <div className="relative">
-                      <span className="text-4xl mb-6 block">{s.icon}</span>
+                      <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-6 group-hover:scale-110 group-hover:border-cyan-500/30 transition-all duration-300">
+                        {s.icon}
+                      </div>
                       <h3 className="text-xl font-bold mb-3 text-white">{s.title}</h3>
                       <p className="text-sm text-slate-300 leading-[1.8]">{s.desc}</p>
                     </div>
