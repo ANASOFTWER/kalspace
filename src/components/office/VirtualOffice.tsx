@@ -872,6 +872,21 @@ export default function VirtualOffice() {
           setIncomingCall(null);
         }
       })
+      .on('broadcast', { event: 'spatial_rtc_offer' }, (payload) => {
+        const data = payload.payload;
+        if (data.to !== loggedInUserId) return;
+        handleRtcOffer(data.from, data.sdp);
+      })
+      .on('broadcast', { event: 'spatial_rtc_answer' }, (payload) => {
+        const data = payload.payload;
+        if (data.to !== loggedInUserId) return;
+        handleRtcAnswer(data.from, data.sdp);
+      })
+      .on('broadcast', { event: 'spatial_rtc_ice' }, (payload) => {
+        const data = payload.payload;
+        if (data.to !== loggedInUserId) return;
+        handleRtcIce(data.from, data.candidate);
+      })
       .subscribe(async (status) => {
         console.log('Presence Subscription Status:', status);
         setRealtimeStatus(status);
@@ -960,94 +975,281 @@ export default function VirtualOffice() {
     return nearby || null;
   }, [employees, currentUser?.x, currentUser?.y, loggedInUserId]);
 
-  // ═══ SPATIAL AUDIO PROXIMITY ENGINE ═══
-  // Generates a continuous warm tone per nearby colleague; volume scales inversely with distance.
-  const spatialAudioCtxRef = useRef<AudioContext | null>(null);
-  const spatialNodesRef = useRef<Map<string, { osc: OscillatorNode; gain: GainNode }>>(new Map());
+  // ═══ SPATIAL VOICE PROXIMITY ENGINE (WebRTC) ═══
+  // Real microphone audio between users. Volume scales with avatar distance on the map.
+  const localMicStreamRef = useRef<MediaStream | null>(null);
+  const spatialVoiceCtxRef = useRef<AudioContext | null>(null);
+  const rtcPeersRef = useRef<Map<string, {
+    pc: RTCPeerConnection;
+    audioEl: HTMLAudioElement;
+    gainNode: GainNode;
+    sourceNode: MediaElementAudioSourceNode | null;
+    makingOffer: boolean;
+  }>>(new Map());
+  const pendingCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
 
-  useEffect(() => {
-    if (!currentUser || loggedInUserId === 'loading') return;
+  const RTC_CONFIG: RTCConfiguration = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+    ]
+  };
+  const SPATIAL_VOICE_RANGE = 300;
 
-    // Lazy-create AudioContext on first proximity event
-    if (!spatialAudioCtxRef.current) {
+  // Lazy-init AudioContext for spatial voice
+  const getSpatialVoiceCtx = () => {
+    if (!spatialVoiceCtxRef.current || spatialVoiceCtxRef.current.state === 'closed') {
       try {
         const AC = window.AudioContext || (window as any).webkitAudioContext;
-        spatialAudioCtxRef.current = new AC();
-      } catch { return; }
+        spatialVoiceCtxRef.current = new AC();
+      } catch { return null; }
     }
-    const ctx = spatialAudioCtxRef.current;
-    if (!ctx || ctx.state === 'closed') return;
-    // Resume if suspended (browser autoplay policy)
-    if (ctx.state === 'suspended') ctx.resume();
+    if (spatialVoiceCtxRef.current?.state === 'suspended') spatialVoiceCtxRef.current.resume();
+    return spatialVoiceCtxRef.current;
+  };
 
-    const SPATIAL_RANGE = 300;   // px – max hearing distance
-    const MAX_VOLUME = 0.25;     // comfortable cap
-    const activeIds = new Set<string>();
+  // Create a peer connection for a given remote user
+  const createPeerConnection = (remoteId: string): RTCPeerConnection => {
+    const pc = new RTCPeerConnection(RTC_CONFIG);
+
+    // Add local mic tracks
+    if (localMicStreamRef.current) {
+      localMicStreamRef.current.getTracks().forEach(track => {
+        pc.addTrack(track, localMicStreamRef.current!);
+      });
+    }
+
+    // When remote audio arrives
+    pc.ontrack = (ev) => {
+      const ctx = getSpatialVoiceCtx();
+      if (!ctx) return;
+      const audioEl = new Audio();
+      audioEl.srcObject = ev.streams[0] || new MediaStream([ev.track]);
+      audioEl.muted = true; // mute the HTML element; we route through Web Audio
+      audioEl.play().catch(() => {});
+
+      const sourceNode = ctx.createMediaElementSource(audioEl);
+      const gainNode = ctx.createGain();
+      gainNode.gain.setValueAtTime(0, ctx.currentTime);
+      sourceNode.connect(gainNode);
+      gainNode.connect(ctx.destination);
+
+      const existing = rtcPeersRef.current.get(remoteId);
+      if (existing) {
+        existing.audioEl = audioEl;
+        existing.sourceNode = sourceNode;
+        existing.gainNode = gainNode;
+      }
+    };
+
+    // ICE candidates
+    pc.onicecandidate = (ev) => {
+      if (ev.candidate && channelRef.current) {
+        channelRef.current.send({
+          type: 'broadcast',
+          event: 'spatial_rtc_ice',
+          payload: { from: loggedInUserId, to: remoteId, candidate: ev.candidate.toJSON() }
+        });
+      }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
+        destroyPeer(remoteId);
+      }
+    };
+
+    const ctx = getSpatialVoiceCtx();
+    const gainNode = ctx ? ctx.createGain() : null;
+    if (gainNode && ctx) { gainNode.gain.setValueAtTime(0, ctx.currentTime); gainNode.connect(ctx.destination); }
+
+    rtcPeersRef.current.set(remoteId, {
+      pc,
+      audioEl: new Audio(),
+      gainNode: gainNode || (new (window.AudioContext || (window as any).webkitAudioContext)()).createGain(),
+      sourceNode: null,
+      makingOffer: false
+    });
+
+    return pc;
+  };
+
+  const destroyPeer = (remoteId: string) => {
+    const peer = rtcPeersRef.current.get(remoteId);
+    if (peer) {
+      try { peer.pc.close(); } catch {}
+      try { peer.audioEl.pause(); peer.audioEl.srcObject = null; } catch {}
+      try { peer.sourceNode?.disconnect(); } catch {}
+      try { peer.gainNode?.disconnect(); } catch {}
+      rtcPeersRef.current.delete(remoteId);
+    }
+    pendingCandidatesRef.current.delete(remoteId);
+  };
+
+  // Polite-peer: the user with the smaller ID initiates the offer
+  const shouldInitiate = (remoteId: string) => loggedInUserId < remoteId;
+
+  const initiateOffer = async (remoteId: string) => {
+    let peer = rtcPeersRef.current.get(remoteId);
+    if (!peer) {
+      createPeerConnection(remoteId);
+      peer = rtcPeersRef.current.get(remoteId)!;
+    }
+    if (peer.makingOffer) return;
+    peer.makingOffer = true;
+    try {
+      const offer = await peer.pc.createOffer();
+      await peer.pc.setLocalDescription(offer);
+      channelRef.current?.send({
+        type: 'broadcast',
+        event: 'spatial_rtc_offer',
+        payload: { from: loggedInUserId, to: remoteId, sdp: peer.pc.localDescription?.toJSON() }
+      });
+    } catch (err) {
+      console.error('Spatial RTC: Failed to create offer', err);
+    }
+    peer.makingOffer = false;
+  };
+
+  const handleRtcOffer = async (fromId: string, sdp: RTCSessionDescriptionInit) => {
+    let peer = rtcPeersRef.current.get(fromId);
+    if (!peer) {
+      createPeerConnection(fromId);
+      peer = rtcPeersRef.current.get(fromId)!;
+    }
+    try {
+      await peer.pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      // Flush pending ICE candidates
+      const pending = pendingCandidatesRef.current.get(fromId);
+      if (pending) {
+        for (const c of pending) {
+          try { await peer.pc.addIceCandidate(new RTCIceCandidate(c)); } catch {}
+        }
+        pendingCandidatesRef.current.delete(fromId);
+      }
+      const answer = await peer.pc.createAnswer();
+      await peer.pc.setLocalDescription(answer);
+      channelRef.current?.send({
+        type: 'broadcast',
+        event: 'spatial_rtc_answer',
+        payload: { from: loggedInUserId, to: fromId, sdp: peer.pc.localDescription?.toJSON() }
+      });
+    } catch (err) {
+      console.error('Spatial RTC: Failed to handle offer', err);
+    }
+  };
+
+  const handleRtcAnswer = async (fromId: string, sdp: RTCSessionDescriptionInit) => {
+    const peer = rtcPeersRef.current.get(fromId);
+    if (!peer) return;
+    try {
+      await peer.pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      // Flush pending ICE candidates
+      const pending = pendingCandidatesRef.current.get(fromId);
+      if (pending) {
+        for (const c of pending) {
+          try { await peer.pc.addIceCandidate(new RTCIceCandidate(c)); } catch {}
+        }
+        pendingCandidatesRef.current.delete(fromId);
+      }
+    } catch (err) {
+      console.error('Spatial RTC: Failed to handle answer', err);
+    }
+  };
+
+  const handleRtcIce = async (fromId: string, candidate: RTCIceCandidateInit) => {
+    const peer = rtcPeersRef.current.get(fromId);
+    if (!peer || !peer.pc.remoteDescription) {
+      // Queue candidate for later
+      const pending = pendingCandidatesRef.current.get(fromId) || [];
+      pending.push(candidate);
+      pendingCandidatesRef.current.set(fromId, pending);
+      return;
+    }
+    try {
+      await peer.pc.addIceCandidate(new RTCIceCandidate(candidate));
+    } catch {}
+  };
+
+  // Capture microphone on mount
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+      .then(s => {
+        stream = s;
+        localMicStreamRef.current = s;
+        console.log('Spatial Voice: Microphone captured successfully');
+      })
+      .catch(err => {
+        console.log('Spatial Voice: Microphone access denied — spatial voice disabled', err);
+      });
+    return () => {
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      localMicStreamRef.current = null;
+    };
+  }, []);
+
+  // Manage peer connections based on proximity
+  useEffect(() => {
+    if (!currentUser || loggedInUserId === 'loading' || !channelRef.current) return;
+
+    const inRangeIds = new Set<string>();
 
     employees.forEach(emp => {
-      if (emp.id === loggedInUserId) return;
-      if (emp.status === 'offline') return;
+      if (emp.id === loggedInUserId || emp.status === 'offline') return;
+      // Only consider real DB users (UUID length)
+      if (emp.id.length < 10) return;
 
       const dist = Math.hypot((currentUser.x || 0) - emp.x, (currentUser.y || 0) - emp.y);
 
-      if (dist < SPATIAL_RANGE) {
-        activeIds.add(emp.id);
-        // Volume: 1 when on top → 0 at SPATIAL_RANGE
-        const volume = Math.max(0, (1 - dist / SPATIAL_RANGE)) * MAX_VOLUME;
+      if (dist < SPATIAL_VOICE_RANGE) {
+        inRangeIds.add(emp.id);
 
-        let nodes = spatialNodesRef.current.get(emp.id);
-        if (!nodes) {
-          // Create a warm tone per colleague
-          try {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.type = 'sine';
-            osc.frequency.value = 220; // warm A3
-            gain.gain.setValueAtTime(0, ctx.currentTime);
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.start();
-            nodes = { osc, gain };
-            spatialNodesRef.current.set(emp.id, nodes);
-          } catch { return; }
-        }
-        // Smooth ramp to target volume (avoids clicks)
-        nodes.gain.gain.cancelScheduledValues(ctx.currentTime);
-        nodes.gain.gain.setTargetAtTime(volume, ctx.currentTime, 0.15);
-      }
-    });
-
-    // Fade out and remove nodes for colleagues who left range
-    spatialNodesRef.current.forEach((nodes, id) => {
-      if (!activeIds.has(id)) {
-        try {
-          nodes.gain.gain.cancelScheduledValues(ctx.currentTime);
-          nodes.gain.gain.setTargetAtTime(0, ctx.currentTime, 0.1);
-          setTimeout(() => {
-            try { nodes.osc.stop(); } catch {}
-            try { nodes.osc.disconnect(); nodes.gain.disconnect(); } catch {}
-            spatialNodesRef.current.delete(id);
-          }, 500);
-        } catch {
-          spatialNodesRef.current.delete(id);
+        // If no connection yet and we should initiate, do so
+        if (!rtcPeersRef.current.has(emp.id) && shouldInitiate(emp.id)) {
+          initiateOffer(emp.id);
         }
       }
     });
 
-    // Cleanup on unmount
-    return () => {};
+    // Disconnect peers that moved out of range
+    rtcPeersRef.current.forEach((_, peerId) => {
+      if (!inRangeIds.has(peerId)) {
+        destroyPeer(peerId);
+      }
+    });
   }, [employees, currentUser?.x, currentUser?.y, loggedInUserId]);
 
-  // Cleanup spatial audio context on component unmount
+  // Adjust volume for each connected peer based on distance
+  useEffect(() => {
+    if (!currentUser) return;
+    rtcPeersRef.current.forEach((peer, peerId) => {
+      const emp = employees.find(e => e.id === peerId);
+      if (!emp || !peer.gainNode) return;
+
+      const dist = Math.hypot((currentUser.x || 0) - emp.x, (currentUser.y || 0) - emp.y);
+      const volume = dist < SPATIAL_VOICE_RANGE
+        ? Math.max(0, 1 - dist / SPATIAL_VOICE_RANGE)
+        : 0;
+
+      try {
+        const ctx = peer.gainNode.context;
+        peer.gainNode.gain.cancelScheduledValues(ctx.currentTime);
+        peer.gainNode.gain.setTargetAtTime(volume, ctx.currentTime, 0.15);
+      } catch {}
+    });
+  }, [employees, currentUser?.x, currentUser?.y]);
+
+  // Cleanup all WebRTC peers and mic on unmount
   useEffect(() => {
     return () => {
-      spatialNodesRef.current.forEach(nodes => {
-        try { nodes.osc.stop(); } catch {}
-        try { nodes.osc.disconnect(); nodes.gain.disconnect(); } catch {}
-      });
-      spatialNodesRef.current.clear();
-      if (spatialAudioCtxRef.current && spatialAudioCtxRef.current.state !== 'closed') {
-        try { spatialAudioCtxRef.current.close(); } catch {}
+      rtcPeersRef.current.forEach((_, id) => destroyPeer(id));
+      rtcPeersRef.current.clear();
+      if (localMicStreamRef.current) {
+        localMicStreamRef.current.getTracks().forEach(t => t.stop());
+      }
+      if (spatialVoiceCtxRef.current && spatialVoiceCtxRef.current.state !== 'closed') {
+        try { spatialVoiceCtxRef.current.close(); } catch {}
       }
     };
   }, []);
