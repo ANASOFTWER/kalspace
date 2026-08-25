@@ -107,6 +107,18 @@ export default function VirtualOffice() {
   const searchParams = useSearchParams();
   const chatWith = searchParams.get('chatWith');
   const callWith = searchParams.get('callWith');
+
+  const currentUser = employees.find(emp => emp.id === loggedInUserId) || employees[0] || {
+    id: 'loading',
+    name: 'جاري التحميل...',
+    role: 'Employee',
+    department: '',
+    status: 'online',
+    x: 80,
+    y: 120,
+  };
+  const canEditMap = currentUser?.role === 'CEO' || currentUser?.role === 'admin' || currentUser?.role === 'manager';
+  const canInviteTeam = currentUser?.role === 'CEO' || currentUser?.role === 'hr' || currentUser?.role === 'admin' || currentUser?.department === 'HR';
   
   const sidebarOpenRef = useRef(sidebarOpen);
   sidebarOpenRef.current = sidebarOpen;
@@ -140,9 +152,23 @@ export default function VirtualOffice() {
   // Container size tracking for responsive fit
   const [containerSize, setContainerSize] = useState<{ w: number; h: number }>({ w: 1200, h: 800 });
   const baseScale = Math.min(containerSize.w / mapWidth, containerSize.h / mapHeight);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+  const [joystickOffset, setJoystickOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const showControls = isTouchDevice || containerSize.w < 1024;
+  const lastTouchPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   
   // Realtime channel ref
   const channelRef = useRef<any>(null);
+
+  useEffect(() => {
+    setIsTouchDevice(
+      (typeof window !== 'undefined') && (
+        ('ontouchstart' in window) ||
+        (navigator.maxTouchPoints > 0) ||
+        (window.matchMedia('(pointer: coarse)').matches)
+      )
+    );
+  }, []);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -743,10 +769,29 @@ export default function VirtualOffice() {
         setEmployees([defaultCEO, ...mockUserList]);
       }
     }
-    
     loadRealUser();
+  }, []);
+
+  useEffect(() => {
     localStorage.setItem('company_size', companySize);
-  }, [companySize]);
+    
+    // Sync company size in realtime
+    if (channelRef.current && canEditMap && realtimeStatus === 'SUBSCRIBED') {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'company_size_update',
+        payload: { size: companySize }
+      });
+      
+      const me = employees.find(emp => emp.id === loggedInUserId);
+      if (me) {
+        channelRef.current.track({
+          ...me,
+          companySize: companySize
+        });
+      }
+    }
+  }, [companySize, canEditMap, realtimeStatus]);
 
   // Disable automatic profile modal since we are fetching from DB
   useEffect(() => {
@@ -776,15 +821,25 @@ export default function VirtualOffice() {
         const newState = channel.presenceState();
         console.log('Presence Sync Event: Received new presence state', newState);
         const onlineUsers: Employee[] = [];
+        let activeCompanySize: string | null = null;
         
         Object.keys(newState).forEach(key => {
           if (newState[key] && newState[key].length > 0) {
-            const userState = newState[key][0] as unknown as Employee;
+            const userState = newState[key][0] as any;
             if (userState.id !== loggedInUserId && !userState.is_terminated) {
               onlineUsers.push(userState);
+              // Check if this online user is a manager and has shared the company size
+              const isManager = userState.role === 'CEO' || userState.role === 'admin' || userState.role === 'manager';
+              if (isManager && userState.companySize) {
+                activeCompanySize = userState.companySize;
+              }
             }
           }
         });
+
+        if (activeCompanySize) {
+          setCompanySize(activeCompanySize);
+        }
 
         console.log('Presence Sync: Active online users (excluding self)', onlineUsers);
         setEmployees(prev => {
@@ -887,6 +942,10 @@ export default function VirtualOffice() {
         if (data.to !== loggedInUserId) return;
         handleRtcIce(data.from, data.candidate);
       })
+      .on('broadcast', { event: 'company_size_update' }, (payload) => {
+        const { size } = payload.payload;
+        setCompanySize(size);
+      })
       .subscribe(async (status) => {
         console.log('Presence Subscription Status:', status);
         setRealtimeStatus(status);
@@ -895,7 +954,9 @@ export default function VirtualOffice() {
             const me = currentEmployees.find(emp => emp.id === loggedInUserId);
             if (me) {
               console.log('Presence: Tracking self on subscribe', me);
-              channel.track(me);
+              const isManager = me.role === 'CEO' || me.role === 'admin' || me.role === 'manager';
+              const trackData = isManager ? { ...me, companySize: localStorage.getItem('company_size') || '2-5' } : me;
+              channel.track(trackData);
             }
             return currentEmployees;
           });
@@ -935,17 +996,7 @@ export default function VirtualOffice() {
     return () => clearInterval(timer);
   }, [pomodoroActive, pomodoroSeconds]);
 
-  const currentUser = employees.find(emp => emp.id === loggedInUserId) || employees[0] || {
-    id: 'loading',
-    name: 'جاري التحميل...',
-    role: 'Employee',
-    department: '',
-    status: 'online',
-    x: 80,
-    y: 120,
-  };
-  const canEditMap = currentUser?.role === 'CEO' || currentUser?.role === 'admin' || currentUser?.role === 'manager';
-  const canInviteTeam = currentUser?.role === 'CEO' || currentUser?.role === 'hr' || currentUser?.role === 'admin' || currentUser?.department === 'HR';
+
 
   // Broadcast our movement
   useEffect(() => {
@@ -1099,12 +1150,18 @@ export default function VirtualOffice() {
     peer.makingOffer = true;
     try {
       const offer = await peer.pc.createOffer();
-      await peer.pc.setLocalDescription(offer);
-      channelRef.current?.send({
-        type: 'broadcast',
-        event: 'spatial_rtc_offer',
-        payload: { from: loggedInUserId, to: remoteId, sdp: peer.pc.localDescription?.toJSON() }
-      });
+      if (peer.pc.signalingState === 'stable' || peer.pc.signalingState === 'have-local-offer') {
+        try {
+          await peer.pc.setLocalDescription(offer);
+          channelRef.current?.send({
+            type: 'broadcast',
+            event: 'spatial_rtc_offer',
+            payload: { from: loggedInUserId, to: remoteId, sdp: peer.pc.localDescription?.toJSON() }
+          });
+        } catch (localDescrErr) {
+          console.warn('Spatial RTC: Failed to set local description on offer safely', localDescrErr);
+        }
+      }
     } catch (err) {
       console.error('Spatial RTC: Failed to create offer', err);
     }
@@ -1127,13 +1184,23 @@ export default function VirtualOffice() {
         }
         pendingCandidatesRef.current.delete(fromId);
       }
-      const answer = await peer.pc.createAnswer();
-      await peer.pc.setLocalDescription(answer);
-      channelRef.current?.send({
-        type: 'broadcast',
-        event: 'spatial_rtc_answer',
-        payload: { from: loggedInUserId, to: fromId, sdp: peer.pc.localDescription?.toJSON() }
-      });
+      if (peer.pc.signalingState === 'have-remote-offer' || peer.pc.signalingState === 'have-local-pranswer') {
+        try {
+          const answer = await peer.pc.createAnswer();
+          if (peer.pc.signalingState === 'have-remote-offer' || peer.pc.signalingState === 'have-local-pranswer') {
+            await peer.pc.setLocalDescription(answer);
+            channelRef.current?.send({
+              type: 'broadcast',
+              event: 'spatial_rtc_answer',
+              payload: { from: loggedInUserId, to: fromId, sdp: peer.pc.localDescription?.toJSON() }
+            });
+          }
+        } catch (localDescrErr) {
+          console.warn('Spatial RTC: Failed to set local description safely', localDescrErr);
+        }
+      } else {
+        console.warn('Spatial RTC: Skipping answer creation since signalingState is', peer.pc.signalingState);
+      }
     } catch (err) {
       console.error('Spatial RTC: Failed to handle offer', err);
     }
@@ -1143,14 +1210,18 @@ export default function VirtualOffice() {
     const peer = rtcPeersRef.current.get(fromId);
     if (!peer) return;
     try {
-      await peer.pc.setRemoteDescription(new RTCSessionDescription(sdp));
-      // Flush pending ICE candidates
-      const pending = pendingCandidatesRef.current.get(fromId);
-      if (pending) {
-        for (const c of pending) {
-          try { await peer.pc.addIceCandidate(new RTCIceCandidate(c)); } catch {}
+      if (peer.pc.signalingState === 'have-local-offer') {
+        await peer.pc.setRemoteDescription(new RTCSessionDescription(sdp));
+        // Flush pending ICE candidates
+        const pending = pendingCandidatesRef.current.get(fromId);
+        if (pending) {
+          for (const c of pending) {
+            try { await peer.pc.addIceCandidate(new RTCIceCandidate(c)); } catch {}
+          }
+          pendingCandidatesRef.current.delete(fromId);
         }
-        pendingCandidatesRef.current.delete(fromId);
+      } else {
+        console.warn('Spatial RTC: Skipping setting remote answer since signalingState is', peer.pc.signalingState);
       }
     } catch (err) {
       console.error('Spatial RTC: Failed to handle answer', err);
@@ -1811,8 +1882,14 @@ export default function VirtualOffice() {
             </h2>
             <div className="flex items-center gap-2 mt-1 drop-shadow text-xs text-slate-300">
               <span>التحكم:</span>
-              <kbd className="px-2 py-0.5 rounded bg-slate-800 text-cyan-300 border border-slate-700 text-xs font-mono font-bold">W A S D</kbd>
-              <span>أو انقر بالماوس في أي مكان للتحرك / استخدم عجلة الماوس للتكبير والتصغير</span>
+              {isTouchDevice ? (
+                <span>استخدم عجلة التوجيه العائمة للتحرك والتكبير</span>
+              ) : (
+                <>
+                  <kbd className="px-2 py-0.5 rounded bg-slate-800 text-cyan-300 border border-slate-700 text-xs font-mono font-bold">W A S D</kbd>
+                  <span>أو انقر بالماوس في أي مكان للتحرك / استخدم عجلة الماوس للتكبير والتصغير</span>
+                </>
+              )}
             </div>
           </div>
 
@@ -1937,6 +2014,22 @@ export default function VirtualOffice() {
         <div 
           ref={containerRef}
           className="flex-1 w-full relative overflow-auto bg-[#090d1f] scrollbar-hide"
+          onTouchStart={(e) => {
+            if (zoomLevel > 1.1 && e.touches.length === 1) {
+              setIsPanning(true);
+              lastTouchPosRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }
+          }}
+          onTouchMove={(e) => {
+            if (isPanning && e.touches.length === 1) {
+              const touch = e.touches[0];
+              const dx = touch.clientX - lastTouchPosRef.current.x;
+              const dy = touch.clientY - lastTouchPosRef.current.y;
+              lastTouchPosRef.current = { x: touch.clientX, y: touch.clientY };
+              setPanOffset(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+            }
+          }}
+          onTouchEnd={() => { setIsPanning(false); }}
           onWheel={(e) => {
             e.preventDefault();
             // Calculate mouse position relative to the map content
@@ -1987,13 +2080,13 @@ export default function VirtualOffice() {
               height: `${mapHeight}px`,
               ...getBlueprintBackground(),
               // Mobile specific layout overrides to enable native scroll and prevent top/left cutoff
-              position: (containerSize.w < 768) ? 'relative' : 'absolute',
-              top: (containerSize.w < 768) ? '0' : '50%',
-              left: (containerSize.w < 768) ? '0' : '50%',
-              transform: (containerSize.w < 768)
+              position: (containerSize.w < 500) ? 'relative' : 'absolute',
+              top: (containerSize.w < 500) ? '0' : '50%',
+              left: (containerSize.w < 500) ? '0' : '50%',
+              transform: (containerSize.w < 500)
                 ? `scale(${zoomLevel})`
                 : `translate(calc(-50% + ${panOffset.x}px), calc(-50% + ${panOffset.y}px)) scale(${baseScale * zoomLevel})`,
-              transformOrigin: (containerSize.w < 768) ? 'top left' : `${zoomOrigin.x}% ${zoomOrigin.y}%`,
+              transformOrigin: (containerSize.w < 500) ? 'top left' : `${zoomOrigin.x}% ${zoomOrigin.y}%`,
               transition: isPanning ? 'none' : 'transform 0.15s ease-out',
               cursor: zoomLevel > 1.1 ? 'grab' : 'default',
             }}
@@ -2361,7 +2454,7 @@ export default function VirtualOffice() {
 
       {/* ═══ ACTIVE PRIVATE CALL OVERLAY ═══ */}
       {(callActive || privateCallTargetId) && !incomingCall && (
-        <div className="absolute bottom-6 right-6 w-96 bg-slate-900/90 backdrop-blur-2xl border border-white/10 rounded-2xl p-5 shadow-2xl z-45 animate-fade-in-up">
+        <div className="absolute bottom-20 left-4 right-4 md:left-auto md:right-6 md:w-96 md:bottom-6 bg-slate-900/90 backdrop-blur-2xl border border-white/10 rounded-2xl p-5 shadow-2xl z-45 animate-fade-in-up">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-emerald-500 animate-ping" />
@@ -2980,46 +3073,97 @@ export default function VirtualOffice() {
         )}
       </AnimatePresence>
 
-      {/* ═══ MOBILE D-PAD CONTROLS ═══ */}
-      <div className="md:hidden absolute bottom-16 right-6 flex flex-col items-center gap-1 z-50 pointer-events-auto" dir="ltr">
-        <button 
-          onPointerDown={(e) => { e.preventDefault(); startMobileMove(0, -1); }}
-          onPointerUp={stopMobileMove}
-          onPointerLeave={stopMobileMove}
-          className="w-12 h-12 bg-slate-900/90 backdrop-blur border border-white/20 rounded-full flex items-center justify-center text-white active:bg-cyan-600 transition-colors shadow-xl touch-none"
-        >
-          <ChevronUp size={24} />
-        </button>
-        <div className="flex gap-1">
-          <button 
-            onPointerDown={(e) => { e.preventDefault(); startMobileMove(-1, 0); }}
-            onPointerUp={stopMobileMove}
-            onPointerLeave={stopMobileMove}
-            className="w-12 h-12 bg-slate-900/90 backdrop-blur border border-white/20 rounded-full flex items-center justify-center text-white active:bg-cyan-600 transition-colors shadow-xl touch-none"
-          >
-            <ChevronLeft size={24} />
-          </button>
-          <div className="w-12 h-12 flex items-center justify-center">
-            <div className="w-5 h-5 rounded-full bg-cyan-500/20" />
+      {/* ═══ PREMIUM TOUCH CONTROLS (JOYSTICK + ZOOM) ═══ */}
+      {showControls && (
+        <>
+          {/* Zoom controls floating above joystick */}
+          <div className="fixed bottom-60 right-8 z-50 pointer-events-auto flex flex-col gap-2 select-none" dir="ltr">
+            <button 
+              onClick={() => setZoomLevel(prev => Math.min(4, prev + 0.25))}
+              className="w-10 h-10 rounded-xl bg-slate-950/80 backdrop-blur-md border border-slate-700/50 flex items-center justify-center text-slate-300 hover:text-white active:bg-cyan-500/20 active:text-cyan-400 border-cyan-500/10 shadow-xl transition-all font-bold text-lg"
+              title={locale === 'ar' ? 'تكبير' : 'Zoom In'}
+            >
+              ＋
+            </button>
+            <button 
+              onClick={() => {
+                setZoomLevel(prev => {
+                  const next = Math.max(1, prev - 0.25);
+                  if (next <= 1) setPanOffset({ x: 0, y: 0 });
+                  return next;
+                });
+              }}
+              className="w-10 h-10 rounded-xl bg-slate-950/80 backdrop-blur-md border border-slate-700/50 flex items-center justify-center text-slate-300 hover:text-white active:bg-cyan-500/20 active:text-cyan-400 border-cyan-500/10 shadow-xl transition-all font-bold text-lg"
+              title={locale === 'ar' ? 'تصغير' : 'Zoom Out'}
+            >
+              －
+            </button>
           </div>
-          <button 
-            onPointerDown={(e) => { e.preventDefault(); startMobileMove(1, 0); }}
-            onPointerUp={stopMobileMove}
-            onPointerLeave={stopMobileMove}
-            className="w-12 h-12 bg-slate-900/90 backdrop-blur border border-white/20 rounded-full flex items-center justify-center text-white active:bg-cyan-600 transition-colors shadow-xl touch-none"
+
+          {/* Glowing Joystick Control Wheel */}
+          <div 
+            className="fixed bottom-20 right-6 z-50 pointer-events-auto flex flex-col items-center select-none" 
+            dir="ltr"
           >
-            <ChevronRight size={24} />
-          </button>
-        </div>
-        <button 
-          onPointerDown={(e) => { e.preventDefault(); startMobileMove(0, 1); }}
-          onPointerUp={stopMobileMove}
-          onPointerLeave={stopMobileMove}
-          className="w-12 h-12 bg-slate-900/90 backdrop-blur border border-white/20 rounded-full flex items-center justify-center text-white active:bg-cyan-600 transition-colors shadow-xl touch-none"
-        >
-          <ChevronDown size={24} />
-        </button>
-      </div>
+            <span className="text-[9px] text-slate-400/80 font-extrabold mb-1.5 uppercase tracking-wider bg-slate-950/70 px-2 py-0.5 rounded-full border border-white/5 backdrop-blur-sm">
+              {locale === 'ar' ? 'عجلة الحركة' : 'Movement'}
+            </span>
+            <div className="w-32 h-32 rounded-full bg-slate-950/85 backdrop-blur-lg border border-slate-800/80 relative shadow-[0_15px_35px_rgba(0,0,0,0.6)] flex items-center justify-center select-none touch-none">
+              
+              {/* Up Arrow Button */}
+              <button 
+                onPointerDown={(e) => { e.preventDefault(); startMobileMove(0, -1); setJoystickOffset({ x: 0, y: -10 }); }}
+                onPointerUp={() => { stopMobileMove(); setJoystickOffset({ x: 0, y: 0 }); }}
+                onPointerLeave={() => { stopMobileMove(); setJoystickOffset({ x: 0, y: 0 }); }}
+                className="absolute top-1 left-1/2 -translate-x-1/2 w-10 h-10 flex items-center justify-center text-slate-500 active:text-cyan-400 hover:text-slate-300 transition-colors touch-none"
+              >
+                <ChevronUp size={24} />
+              </button>
+
+              {/* Left Arrow Button */}
+              <button 
+                onPointerDown={(e) => { e.preventDefault(); startMobileMove(-1, 0); setJoystickOffset({ x: -10, y: 0 }); }}
+                onPointerUp={() => { stopMobileMove(); setJoystickOffset({ x: 0, y: 0 }); }}
+                onPointerLeave={() => { stopMobileMove(); setJoystickOffset({ x: 0, y: 0 }); }}
+                className="absolute left-1 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center text-slate-500 active:text-cyan-400 hover:text-slate-300 transition-colors touch-none"
+              >
+                <ChevronLeft size={24} />
+              </button>
+
+              {/* Right Arrow Button */}
+              <button 
+                onPointerDown={(e) => { e.preventDefault(); startMobileMove(1, 0); setJoystickOffset({ x: 10, y: 0 }); }}
+                onPointerUp={() => { stopMobileMove(); setJoystickOffset({ x: 0, y: 0 }); }}
+                onPointerLeave={() => { stopMobileMove(); setJoystickOffset({ x: 0, y: 0 }); }}
+                className="absolute right-1 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center text-slate-500 active:text-cyan-400 hover:text-slate-300 transition-colors touch-none"
+              >
+                <ChevronRight size={24} />
+              </button>
+
+              {/* Down Arrow Button */}
+              <button 
+                onPointerDown={(e) => { e.preventDefault(); startMobileMove(0, 1); setJoystickOffset({ x: 0, y: 10 }); }}
+                onPointerUp={() => { stopMobileMove(); setJoystickOffset({ x: 0, y: 0 }); }}
+                onPointerLeave={() => { stopMobileMove(); setJoystickOffset({ x: 0, y: 0 }); }}
+                className="absolute bottom-1 left-1/2 -translate-x-1/2 w-10 h-10 flex items-center justify-center text-slate-500 active:text-cyan-400 hover:text-slate-300 transition-colors touch-none"
+              >
+                <ChevronDown size={24} />
+              </button>
+
+              {/* Moving Central Thumbstick */}
+              <div 
+                style={{
+                  transform: `translate(${joystickOffset.x}px, ${joystickOffset.y}px)`,
+                  transition: 'transform 0.1s ease-out'
+                }}
+                className="w-12 h-12 rounded-full bg-slate-900 border border-slate-700/80 flex items-center justify-center z-10 shadow-[0_4px_12px_rgba(0,0,0,0.5)] pointer-events-none"
+              >
+                <div className="w-3.5 h-3.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 shadow-[0_0_12px_rgba(6,180,212,0.6)]" />
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
 
 

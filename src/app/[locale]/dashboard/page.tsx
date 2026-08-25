@@ -181,8 +181,11 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent mb-1">
-            {locale === 'ar' ? `مرحباً ${userName}` : `Welcome ${userName}`} 👋
+          <h1 className="text-3xl font-bold mb-1">
+            <span className="bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent">
+              {locale === 'ar' ? `مرحباً ${userName}` : `Welcome ${userName}`}
+            </span>
+            <span className="inline-block ms-2 select-none">👋</span>
           </h1>
           <p className="text-slate-400 font-medium">
             {locale === 'ar' ? 'أهلاً بك في مقر شركتك الافتراضي' : 'Welcome to your virtual office headquarters'}
