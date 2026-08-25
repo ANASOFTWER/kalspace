@@ -2079,14 +2079,11 @@ export default function VirtualOffice() {
               width: `${mapWidth}px`, 
               height: `${mapHeight}px`,
               ...getBlueprintBackground(),
-              // Mobile specific layout overrides to enable native scroll and prevent top/left cutoff
-              position: (containerSize.w < 500) ? 'relative' : 'absolute',
-              top: (containerSize.w < 500) ? '0' : '50%',
-              left: (containerSize.w < 500) ? '0' : '50%',
-              transform: (containerSize.w < 500)
-                ? `scale(${zoomLevel})`
-                : `translate(calc(-50% + ${panOffset.x}px), calc(-50% + ${panOffset.y}px)) scale(${baseScale * zoomLevel})`,
-              transformOrigin: (containerSize.w < 500) ? 'top left' : `${zoomOrigin.x}% ${zoomOrigin.y}%`,
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: `translate(calc(-50% + ${panOffset.x}px), calc(-50% + ${panOffset.y}px)) scale(${baseScale * zoomLevel})`,
+              transformOrigin: `${zoomOrigin.x}% ${zoomOrigin.y}%`,
               transition: isPanning ? 'none' : 'transform 0.15s ease-out',
               cursor: zoomLevel > 1.1 ? 'grab' : 'default',
             }}
