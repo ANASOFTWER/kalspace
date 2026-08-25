@@ -2195,58 +2195,6 @@ export default function VirtualOffice() {
                   {/* Desks render dynamic assigned names with small edit pen icon */}
                   {isDesk ? (
                     <div className="flex flex-col items-center gap-1 text-center w-full relative">
-                      {editingDeskId === f.id ? (
-                        <div className="flex items-center gap-1 bg-slate-950/90 border border-cyan-400 rounded-lg p-0.5 pointer-events-auto z-50">
-                          <input
-                            type="text"
-                            value={editingDeskValue}
-                            onChange={(e) => setEditingDeskValue(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                if (editingDeskValue.trim()) {
-                                  setFurnitureNames(prev => ({ ...prev, [f.id]: editingDeskValue.trim() }));
-                                }
-                                setEditingDeskId(null);
-                              } else if (e.key === 'Escape') {
-                                setEditingDeskId(null);
-                              }
-                            }}
-                            className="bg-transparent text-white text-[10px] w-20 outline-none px-1 py-0.5 font-bold"
-                            autoFocus
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (editingDeskValue.trim()) {
-                                  setFurnitureNames(prev => ({ ...prev, [f.id]: editingDeskValue.trim() }));
-                              }
-                              setEditingDeskId(null);
-                            }}
-                            className="p-1 text-emerald-400 hover:bg-slate-800 rounded transition-all"
-                          >
-                            <Check className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1 justify-center">
-                          <span className="text-[10px] font-black text-white drop-shadow truncate max-w-[85px]">
-                            {customName}
-                          </span>
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingDeskId(f.id);
-                              setEditingDeskValue(customName);
-                            }}
-                            className="p-1 hover:bg-slate-800 rounded text-slate-300 hover:text-cyan-300 transition-all pointer-events-auto"
-                            title="تعديل اسم المكتب"
-                          >
-                            <Edit3 className="w-2.5 h-2.5" />
-                          </button>
-                        </div>
-                      )}
-                      
                       {/* Interactive Popover Menu */}
                       <AnimatePresence>
                         {selectedDeskMenuId === f.id && (
@@ -2254,7 +2202,7 @@ export default function VirtualOffice() {
                             initial={{ opacity: 0, scale: 0.9, y: 5 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.9, y: 5 }}
-                            className="absolute -top-24 left-1/2 -translate-x-1/2 bg-slate-950/95 border border-white/20 rounded-2xl p-2.5 flex flex-col gap-1.5 shadow-[0_10px_25px_rgba(0,0,0,0.6)] z-50 whitespace-nowrap pointer-events-auto"
+                            className="absolute -top-20 left-1/2 -translate-x-1/2 bg-slate-950/95 border border-white/20 rounded-2xl p-2.5 flex flex-col gap-1.5 shadow-[0_10px_25px_rgba(0,0,0,0.6)] z-50 whitespace-nowrap pointer-events-auto"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <button
@@ -2267,16 +2215,6 @@ export default function VirtualOffice() {
                               💻 ابدأ جلسة التركيز (Pomodoro)
                             </button>
                             <button
-                              onClick={() => {
-                                setEditingDeskId(f.id);
-                                setEditingDeskValue(customName);
-                                setSelectedDeskMenuId(null);
-                              }}
-                              className="px-3.5 py-1.5 hover:bg-slate-800 text-[10px] font-extrabold text-slate-200 rounded-lg text-right transition-all flex items-center gap-1"
-                            >
-                              ✏️ تعديل اسم المكتب
-                            </button>
-                            <button
                               onClick={() => setSelectedDeskMenuId(null)}
                               className="px-3.5 py-1 hover:bg-rose-500/20 text-rose-400 text-[10px] font-extrabold rounded-lg text-center transition-all border border-rose-500/20"
                             >
@@ -2285,9 +2223,6 @@ export default function VirtualOffice() {
                           </motion.div>
                         )}
                       </AnimatePresence>
-                      
-                      {/* Mini monitor light */}
-                      <div className="w-4 h-1.5 rounded-sm bg-cyan-400 animate-pulse mt-0.5" />
                     </div>
                   ) : null}
 
