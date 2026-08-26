@@ -12,7 +12,7 @@ import {
   Wifi, Globe, Clock, HeadphonesIcon, Play, Sparkles,
   Building, Rocket
 } from 'lucide-react';
-import { motion, AnimatePresence, useInView } from 'framer-motion';
+import { motion, AnimatePresence, useInView, useMotionValue, useTransform, animate } from 'framer-motion';
 
 /* ═══════════════════════════════════════════════════════
    HELPER: Section wrapper with scroll-triggered fade-in
@@ -36,28 +36,28 @@ function RevealSection({ children, className = '', delay = 0 }: { children: Reac
 /* ═══════════════════════════════════════════════════════
    HELPER: Animated counter
    ═══════════════════════════════════════════════════════ */
-function AnimCounter({ target, suffix = '', duration = 2000 }: { target: number; suffix?: string; duration?: number }) {
-  const [count, setCount] = useState(0);
-  const [started, setStarted] = useState(false);
+function AnimCounter({ target, suffix = '', duration = 2 }: { target: number; suffix?: string; duration?: number }) {
+  const count = useMotionValue(0);
+  const rounded = useTransform(count, (latest) => Math.floor(latest));
   const ref = useRef(null);
-  const isInView = useInView(ref, { once: true });
+  const isInView = useInView(ref, { once: true, margin: '-20px' });
 
   useEffect(() => {
-    if (isInView && !started) {
-      setStarted(true);
-      const steps = 60;
-      const increment = target / steps;
-      let current = 0;
-      const timer = setInterval(() => {
-        current += increment;
-        if (current >= target) { setCount(target); clearInterval(timer); }
-        else setCount(Math.floor(current));
-      }, duration / steps);
-      return () => clearInterval(timer);
+    if (isInView) {
+      const controls = animate(count, target, { 
+        duration: duration,
+        ease: 'easeOut'
+      });
+      return () => controls.stop();
     }
-  }, [isInView, started, target, duration]);
+  }, [isInView, target, duration, count]);
 
-  return <span ref={ref}>{count}{suffix}</span>;
+  return (
+    <span ref={ref} className="inline-block">
+      <motion.span>{rounded}</motion.span>
+      {suffix}
+    </span>
+  );
 }
 
 export default function LandingPage() {
