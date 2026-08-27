@@ -166,6 +166,8 @@ export default function VirtualOffice() {
   };
   const showControls = (isTouchDevice || containerSize.w < 1024) && showControlsToggle;
   const [mediaCaptured, setMediaCaptured] = useState(false);
+  const [localStreamState, setLocalStreamState] = useState<MediaStream | null>(null);
+  const [remoteStreams, setRemoteStreams] = useState<Record<string, MediaStream>>({});
   const lastTouchPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   
   // Realtime channel ref
@@ -1099,6 +1101,12 @@ export default function VirtualOffice() {
         existing.remoteStream = stream;
       }
 
+      // Add to reactive streams state
+      setRemoteStreams(prev => ({
+        ...prev,
+        [remoteId]: stream
+      }));
+
       if (ev.track.kind === 'audio') {
         const ctx = getSpatialVoiceCtx();
         if (!ctx) return;
@@ -1163,6 +1171,11 @@ export default function VirtualOffice() {
       rtcPeersRef.current.delete(remoteId);
     }
     pendingCandidatesRef.current.delete(remoteId);
+    setRemoteStreams(prev => {
+      const next = { ...prev };
+      delete next[remoteId];
+      return next;
+    });
   };
 
   // Polite-peer: the user with the smaller ID initiates the offer
@@ -1281,6 +1294,7 @@ export default function VirtualOffice() {
         // Disable video track by default on capture to protect privacy
         stream.getVideoTracks().forEach(t => { t.enabled = false; });
         localMicStreamRef.current = stream;
+        setLocalStreamState(stream);
         setMediaCaptured(true);
         console.log('Spatial Voice: Captured audio and video successfully');
       } catch (err) {
@@ -1288,6 +1302,7 @@ export default function VirtualOffice() {
         try {
           stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
           localMicStreamRef.current = stream;
+          setLocalStreamState(stream);
           setMediaCaptured(true);
           console.log('Spatial Voice: Captured audio only successfully');
         } catch (err2) {
@@ -1301,6 +1316,7 @@ export default function VirtualOffice() {
     return () => {
       if (stream) stream.getTracks().forEach(t => t.stop());
       localMicStreamRef.current = null;
+      setLocalStreamState(null);
     };
   }, []);
 
@@ -2360,8 +2376,7 @@ export default function VirtualOffice() {
                     style={{ transform: `scaleX(${mv.scaleX})` }}
                   >
                     {(() => {
-                      const peer = rtcPeersRef.current?.get(emp.id);
-                      const remoteStream = peer ? peer.remoteStream : null;
+                      const remoteStream = remoteStreams[emp.id] || null;
                       return (
                         <Avatar 
                           employee={{ ...emp, x: 0, y: 0 }} 
@@ -2369,7 +2384,7 @@ export default function VirtualOffice() {
                           onDelete={canEditMap ? () => handleDeleteEmployee(emp.id) : undefined}
                           onPrivateCall={() => setPrivateCallTargetId(emp.id)}
                           remoteStream={remoteStream}
-                          localStream={localMicStreamRef.current}
+                          localStream={localStreamState}
                           onToggleVideo={(enabled) => handleLocalMediaToggle('video', enabled)}
                           onToggleMute={(muted) => handleLocalMediaToggle('audio', muted)}
                         />
