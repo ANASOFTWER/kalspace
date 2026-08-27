@@ -12,6 +12,11 @@ const notoSansArabic = Noto_Sans_Arabic({ subsets: ["arabic"], variable: "--font
 export const metadata: Metadata = {
   title: "Kalspace - Your Real Office, Anywhere",
   description: "A complete digital headquarters for remote and hybrid teams.",
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  }
 };
 
 export function generateStaticParams() {
