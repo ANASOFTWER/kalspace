@@ -14,6 +14,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const locale = useLocale();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -133,7 +134,6 @@ export default function DashboardLayout({
     );
   }
 
-  const pathname = usePathname();
   const isOfficePage = pathname?.endsWith('/office');
 
   return (
