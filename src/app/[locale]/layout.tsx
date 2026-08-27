@@ -67,6 +67,9 @@ export const metadata: Metadata = {
       "ar": "https://kalspace.com/ar",
       "en": "https://kalspace.com/en",
     }
+  },
+  verification: {
+    google: "google758c73113848f570",
   }
 };
 
