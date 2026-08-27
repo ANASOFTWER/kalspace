@@ -154,7 +154,8 @@ export default function VirtualOffice() {
   const baseScale = Math.min(containerSize.w / mapWidth, containerSize.h / mapHeight);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   const [joystickOffset, setJoystickOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const showControls = isTouchDevice || containerSize.w < 1024;
+  const [showControlsToggle, setShowControlsToggle] = useState(true);
+  const showControls = (isTouchDevice || containerSize.w < 1024) && showControlsToggle;
   const lastTouchPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   
   // Realtime channel ref
@@ -1998,6 +1999,34 @@ export default function VirtualOffice() {
                 className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:from-indigo-500 hover:to-blue-500 text-xs font-bold transition-all shadow-lg flex items-center gap-1.5 pointer-events-auto"
               >
                 <span>👥</span> <span className="hidden md:inline">دعوة فريقك</span>
+              </button>
+            )}
+
+            {/* Show/Hide controls button (Mobile only) */}
+            {isTouchDevice && (
+              <button 
+                onClick={() => setShowControlsToggle(!showControlsToggle)}
+                className={clsx(
+                  "px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 shadow-lg pointer-events-auto",
+                  showControlsToggle 
+                    ? "bg-cyan-600/90 border-cyan-400 text-white shadow-[0_0_12px_rgba(8,145,178,0.3)]" 
+                    : "bg-slate-900/90 border-slate-700 text-slate-300 hover:text-white"
+                )}
+                title={showControlsToggle ? "إخفاء عجلة التحكم" : "إظهار عجلة التحكم"}
+              >
+                <span>{showControlsToggle ? '🕹️' : '🚫'}</span>
+                <span className="hidden md:inline">عجلة التحكم</span>
+              </button>
+            )}
+
+            {/* Sidebar Menu Toggle (Mobile only) */}
+            {!sidebarOpen && (
+              <button 
+                onClick={() => setSidebarOpen(true)}
+                className="md:hidden px-3 py-1.5 rounded-xl text-xs font-bold transition-all border border-slate-700 bg-slate-900/90 text-slate-300 hover:text-white flex items-center gap-1.5 shadow-lg pointer-events-auto"
+                title="افتح القائمة"
+              >
+                <span>☰</span>
               </button>
             )}
 

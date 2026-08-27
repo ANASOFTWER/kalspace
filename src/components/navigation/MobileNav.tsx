@@ -85,6 +85,15 @@ export default function MobileNav() {
 
   const dir = locale === 'ar' ? 'rtl' : 'ltr';
 
+  const getShortName = (name: string) => {
+    if (name.includes('&')) return name.split('&')[0].trim();
+    if (name.includes('و')) return name.split('و')[0].trim();
+    if (name.includes('and')) return name.split('and')[0].trim();
+    if (name.includes('et')) return name.split('et')[0].trim();
+    if (name.includes('y')) return name.split('y')[0].trim();
+    return name;
+  };
+
   return (
     <>
       <nav className="md:hidden fixed bottom-0 left-0 w-full h-16 bg-card border-t border-card-border flex items-center justify-around px-2 z-50">
@@ -101,7 +110,7 @@ export default function MobileNav() {
               )}
             >
               <Icon className="w-5 h-5" />
-              <span className="text-[10px] font-medium leading-none">{item.name}</span>
+              <span className="text-[10px] font-medium leading-none">{getShortName(item.name)}</span>
             </Link>
           );
         })}

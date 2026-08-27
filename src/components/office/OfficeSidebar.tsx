@@ -138,7 +138,7 @@ export default function OfficeSidebar({
       {!isOpen && (
         <button 
           onClick={() => setIsOpen(true)}
-          className="absolute top-24 left-6 z-40 bg-slate-900/90 border border-slate-700 text-white p-2.5 rounded-xl shadow-2xl hover:bg-slate-800 transition-all flex items-center gap-2 group pointer-events-auto"
+          className="absolute top-24 left-6 z-40 bg-slate-900/90 border border-slate-700 text-white p-2.5 rounded-xl shadow-2xl hover:bg-slate-800 transition-all items-center gap-2 group pointer-events-auto hidden md:flex"
         >
           <Menu className="w-5 h-5 group-hover:scale-110 transition-transform" />
           <span className="text-xs font-bold px-1 hidden md:block">القائمة</span>
@@ -158,7 +158,7 @@ export default function OfficeSidebar({
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 320, opacity: 0 }}
             transition={{ type: "spring", bounce: 0, duration: 0.4 }}
-            className="h-full border-l border-white/15 bg-slate-950/95 backdrop-blur-xl flex flex-col z-45 w-[320px] absolute right-0 top-0 overflow-hidden shadow-[-20px_0_40px_rgba(0,0,0,0.5)]"
+            className="h-[calc(100vh-4rem)] md:h-screen border-l border-white/15 bg-slate-950/95 backdrop-blur-xl flex flex-col z-45 w-[320px] absolute right-0 top-0 overflow-hidden shadow-[-20px_0_40px_rgba(0,0,0,0.5)]"
           >
             {/* Collapse Button Header */}
             <div className="flex items-center justify-between p-3 border-b border-white/10 shrink-0" dir="rtl">
