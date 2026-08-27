@@ -174,6 +174,7 @@ export default function VirtualOffice() {
   const channelRef = useRef<any>(null);
   const localWebcamTrackRef = useRef<MediaStreamTrack | null>(null);
   const peerVideoSendersRef = useRef<Map<string, RTCRtpSender>>(new Map());
+  const mockCanvasIntervalRef = useRef<any>(null);
 
   useEffect(() => {
     setIsTouchDevice(
@@ -1303,10 +1304,20 @@ export default function VirtualOffice() {
     canvas.width = 16;
     canvas.height = 16;
     const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.fillStyle = 'black';
-      ctx.fillRect(0, 0, 16, 16);
+    
+    if (mockCanvasIntervalRef.current) {
+      clearInterval(mockCanvasIntervalRef.current);
     }
+
+    let toggle = false;
+    mockCanvasIntervalRef.current = setInterval(() => {
+      if (ctx) {
+        ctx.fillStyle = toggle ? '#000000' : '#111111';
+        ctx.fillRect(0, 0, 16, 16);
+        toggle = !toggle;
+      }
+    }, 1000);
+
     const canvasStream = (canvas as any).captureStream ? (canvas as any).captureStream(1) : null;
     return canvasStream ? canvasStream.getVideoTracks()[0] : null;
   };
@@ -1341,6 +1352,9 @@ export default function VirtualOffice() {
       if (stream) stream.getTracks().forEach(t => t.stop());
       if (localWebcamTrackRef.current) {
         try { localWebcamTrackRef.current.stop(); } catch {}
+      }
+      if (mockCanvasIntervalRef.current) {
+        clearInterval(mockCanvasIntervalRef.current);
       }
       localMicStreamRef.current = null;
       setLocalStreamState(null);
