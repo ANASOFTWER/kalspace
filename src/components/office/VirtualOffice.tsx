@@ -173,6 +173,7 @@ export default function VirtualOffice() {
   // Realtime channel ref
   const channelRef = useRef<any>(null);
   const localWebcamTrackRef = useRef<MediaStreamTrack | null>(null);
+  const peerVideoSendersRef = useRef<Map<string, RTCRtpSender>>(new Map());
 
   useEffect(() => {
     setIsTouchDevice(
@@ -1097,10 +1098,11 @@ export default function VirtualOffice() {
 
     // Add video transceiver to pre-negotiate video channel without track (or with track if active)
     if (pc.addTransceiver) {
-      pc.addTransceiver(localWebcamTrackRef.current || 'video', {
+      const tc = pc.addTransceiver(localWebcamTrackRef.current || 'video', {
         direction: 'sendrecv',
         streams: localMicStreamRef.current ? [localMicStreamRef.current] : []
       });
+      peerVideoSendersRef.current.set(remoteId, tc.sender);
     } else if (localWebcamTrackRef.current && localMicStreamRef.current) {
       pc.addTrack(localWebcamTrackRef.current, localMicStreamRef.current);
     }
@@ -1183,6 +1185,7 @@ export default function VirtualOffice() {
       rtcPeersRef.current.delete(remoteId);
     }
     pendingCandidatesRef.current.delete(remoteId);
+    peerVideoSendersRef.current.delete(remoteId);
     setRemoteStreams(prev => {
       const next = { ...prev };
       delete next[remoteId];
@@ -1867,9 +1870,8 @@ export default function VirtualOffice() {
           setLocalStreamState(new MediaStream(localMicStreamRef.current.getTracks()));
 
           // Replace track in all peer connections
-          rtcPeersRef.current.forEach(peer => {
-            const transceiver = peer.pc.getTransceivers().find(t => t.receiver && t.receiver.track && t.receiver.track.kind === 'video');
-            const sender = transceiver ? transceiver.sender : null;
+          rtcPeersRef.current.forEach((_, peerId) => {
+            const sender = peerVideoSendersRef.current.get(peerId);
             if (sender) {
               sender.replaceTrack(realTrack).catch(err => {
                 console.error('WebRTC: replaceTrack to real webcam failed', err);
@@ -1903,9 +1905,8 @@ export default function VirtualOffice() {
         }
 
         // Replace track in all peer connections with null
-        rtcPeersRef.current.forEach(peer => {
-          const transceiver = peer.pc.getTransceivers().find(t => t.receiver && t.receiver.track && t.receiver.track.kind === 'video');
-          const sender = transceiver ? transceiver.sender : null;
+        rtcPeersRef.current.forEach((_, peerId) => {
+          const sender = peerVideoSendersRef.current.get(peerId);
           if (sender) {
             sender.replaceTrack(null).catch(err => {
               console.error('WebRTC: replaceTrack to null failed', err);
