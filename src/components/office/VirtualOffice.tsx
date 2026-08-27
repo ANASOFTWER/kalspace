@@ -911,7 +911,7 @@ export default function VirtualOffice() {
       .on('broadcast', { event: 'private_call_invite' }, (payload) => {
         const call = payload.payload;
         console.log('Realtime: Received private_call_invite event', call, 'Current loggedInUserId:', loggedInUserId);
-        if (call.to === loggedInUserId) {
+        if (call.to?.toLowerCase() === loggedInUserId?.toLowerCase()) {
           console.log('Realtime: Call is for me! Setting incomingCall state.');
           setIncomingCall({ from: call.from, fromName: call.fromName });
         } else {
@@ -921,7 +921,7 @@ export default function VirtualOffice() {
       .on('broadcast', { event: 'private_call_accept' }, (payload) => {
         const call = payload.payload;
         console.log('Realtime: Received private_call_accept event', call, 'Current loggedInUserId:', loggedInUserId);
-        if (call.to === loggedInUserId) {
+        if (call.to?.toLowerCase() === loggedInUserId?.toLowerCase()) {
           console.log('Realtime: Call accepted! Activating call screen.');
           setCallActive(true);
           setIncomingCall(null);
@@ -930,7 +930,7 @@ export default function VirtualOffice() {
       .on('broadcast', { event: 'private_call_end' }, (payload) => {
         const call = payload.payload;
         console.log('Realtime: Received private_call_end event', call, 'Current loggedInUserId:', loggedInUserId);
-        if (call.to === loggedInUserId || call.from === loggedInUserId) {
+        if (call.to?.toLowerCase() === loggedInUserId?.toLowerCase() || call.from?.toLowerCase() === loggedInUserId?.toLowerCase()) {
           console.log('Realtime: Call ended. Resetting states.');
           setCallActive(false);
           setPrivateCallTargetId(null);
@@ -939,17 +939,17 @@ export default function VirtualOffice() {
       })
       .on('broadcast', { event: 'spatial_rtc_offer' }, (payload) => {
         const data = payload.payload;
-        if (data.to !== loggedInUserId) return;
+        if (data.to?.toLowerCase() !== loggedInUserId?.toLowerCase()) return;
         handleRtcOffer(data.from, data.sdp);
       })
       .on('broadcast', { event: 'spatial_rtc_answer' }, (payload) => {
         const data = payload.payload;
-        if (data.to !== loggedInUserId) return;
+        if (data.to?.toLowerCase() !== loggedInUserId?.toLowerCase()) return;
         handleRtcAnswer(data.from, data.sdp);
       })
       .on('broadcast', { event: 'spatial_rtc_ice' }, (payload) => {
         const data = payload.payload;
-        if (data.to !== loggedInUserId) return;
+        if (data.to?.toLowerCase() !== loggedInUserId?.toLowerCase()) return;
         handleRtcIce(data.from, data.candidate);
       })
       .on('broadcast', { event: 'company_size_update' }, (payload) => {
@@ -1080,26 +1080,33 @@ export default function VirtualOffice() {
       });
     }
 
-    // When remote audio arrives
+    // When remote audio/video track arrives
     pc.ontrack = (ev) => {
-      const ctx = getSpatialVoiceCtx();
-      if (!ctx) return;
-      const audioEl = new Audio();
-      audioEl.srcObject = ev.streams[0] || new MediaStream([ev.track]);
-      audioEl.muted = true; // mute the HTML element; we route through Web Audio
-      audioEl.play().catch(() => {});
-
-      const sourceNode = ctx.createMediaElementSource(audioEl);
-      const gainNode = ctx.createGain();
-      gainNode.gain.setValueAtTime(0, ctx.currentTime);
-      sourceNode.connect(gainNode);
-      gainNode.connect(ctx.destination);
-
+      const stream = ev.streams[0] || new MediaStream([ev.track]);
       const existing = rtcPeersRef.current.get(remoteId);
       if (existing) {
-        existing.audioEl = audioEl;
-        existing.sourceNode = sourceNode;
-        existing.gainNode = gainNode;
+        existing.remoteStream = stream;
+      }
+
+      if (ev.track.kind === 'audio') {
+        const ctx = getSpatialVoiceCtx();
+        if (!ctx) return;
+        const audioEl = new Audio();
+        audioEl.srcObject = stream;
+        audioEl.muted = true; // mute the HTML element; we route through Web Audio
+        audioEl.play().catch(() => {});
+
+        const sourceNode = ctx.createMediaElementSource(audioEl);
+        const gainNode = ctx.createGain();
+        gainNode.gain.setValueAtTime(0, ctx.currentTime);
+        sourceNode.connect(gainNode);
+        gainNode.connect(ctx.destination);
+
+        if (existing) {
+          existing.audioEl = audioEl;
+          existing.sourceNode = sourceNode;
+          existing.gainNode = gainNode;
+        }
       }
     };
 
@@ -1252,18 +1259,32 @@ export default function VirtualOffice() {
     } catch {}
   };
 
-  // Capture microphone on mount
+  // Capture microphone and camera on mount
   useEffect(() => {
     let stream: MediaStream | null = null;
-    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-      .then(s => {
-        stream = s;
-        localMicStreamRef.current = s;
-        console.log('Spatial Voice: Microphone captured successfully');
-      })
-      .catch(err => {
-        console.log('Spatial Voice: Microphone access denied — spatial voice disabled', err);
-      });
+    
+    const captureMedia = async () => {
+      try {
+        // Try to capture both audio and video
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        // Disable video track by default on capture to protect privacy
+        stream.getVideoTracks().forEach(t => { t.enabled = false; });
+        localMicStreamRef.current = stream;
+        console.log('Spatial Voice: Captured audio and video successfully');
+      } catch (err) {
+        console.warn('Spatial Voice: Failed capturing both, trying audio only...', err);
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          localMicStreamRef.current = stream;
+          console.log('Spatial Voice: Captured audio only successfully');
+        } catch (err2) {
+          console.error('Spatial Voice: Microphone access denied', err2);
+        }
+      }
+    };
+    
+    captureMedia();
+
     return () => {
       if (stream) stream.getTracks().forEach(t => t.stop());
       localMicStreamRef.current = null;
@@ -2304,12 +2325,20 @@ export default function VirtualOffice() {
                     )}
                     style={{ transform: `scaleX(${mv.scaleX})` }}
                   >
-                    <Avatar 
-                      employee={{ ...emp, x: 0, y: 0 }} 
-                      isCurrentUser={emp.id === loggedInUserId}
-                      onDelete={canEditMap ? () => handleDeleteEmployee(emp.id) : undefined}
-                      onPrivateCall={() => setPrivateCallTargetId(emp.id)}
-                    />
+                    {(() => {
+                      const peer = rtcPeersRef.current?.get(emp.id);
+                      const remoteStream = peer ? peer.remoteStream : null;
+                      return (
+                        <Avatar 
+                          employee={{ ...emp, x: 0, y: 0 }} 
+                          isCurrentUser={emp.id === loggedInUserId}
+                          onDelete={canEditMap ? () => handleDeleteEmployee(emp.id) : undefined}
+                          onPrivateCall={() => setPrivateCallTargetId(emp.id)}
+                          remoteStream={remoteStream}
+                          localStream={localMicStreamRef.current}
+                        />
+                      );
+                    })()}
                   </div>
                 </div>
               );

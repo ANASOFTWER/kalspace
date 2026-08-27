@@ -51,43 +51,59 @@ export default function Avatar({
   employee, 
   isCurrentUser, 
   onDelete, 
-  onPrivateCall 
+  onPrivateCall,
+  remoteStream,
+  localStream
 }: { 
   employee: Employee; 
   isCurrentUser?: boolean; 
   onDelete?: () => void; 
   onPrivateCall?: () => void;
+  remoteStream?: MediaStream | null;
+  localStream?: MediaStream | null;
 }) {
   const [showMenu, setShowMenu] = useState(false);
-  const [videoOn, setVideoOn] = useState(employee.isVideoOn ?? true);
+  const [videoOn, setVideoOn] = useState(employee.isVideoOn ?? false);
   const [muted, setMuted] = useState(employee.isMuted ?? false);
   const [webcamFailed, setWebcamFailed] = useState(false);
   const [emojis, setEmojis] = useState<FloatingEmoji[]>([]);
   const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
   
-  // Capture real local webcam if this is the current user
+  // Display local webcam from passed localStream
   useEffect(() => {
-    let stream: MediaStream | null = null;
-    if (isCurrentUser && videoOn) {
+    if (isCurrentUser && localStream && localVideoRef.current) {
       setWebcamFailed(false);
-      navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-        .then(s => {
-          stream = s;
-          if (localVideoRef.current) {
-            localVideoRef.current.srcObject = s;
-          }
-        })
-        .catch(err => {
-          console.warn("Webcam access denied or unavailable, falling back to mock video.", err);
-          setWebcamFailed(true);
-        });
+      localVideoRef.current.srcObject = localStream;
     }
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, [isCurrentUser, videoOn]);
+  }, [isCurrentUser, localStream]);
+
+  // Display remote webcam from passed remoteStream
+  useEffect(() => {
+    if (!isCurrentUser && remoteStream && remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = remoteStream;
+    }
+  }, [isCurrentUser, remoteStream]);
+
+  const handleToggleVideo = () => {
+    const nextVal = !videoOn;
+    setVideoOn(nextVal);
+    if (localStream) {
+      localStream.getVideoTracks().forEach(track => {
+        track.enabled = nextVal;
+      });
+    }
+  };
+
+  const handleToggleMute = () => {
+    const nextVal = !muted;
+    setMuted(nextVal);
+    if (localStream) {
+      localStream.getAudioTracks().forEach(track => {
+        track.enabled = !nextVal;
+      });
+    }
+  };
 
   // Employee avatar component
 
@@ -140,10 +156,10 @@ export default function Avatar({
               employee.isPrivate && "border-rose-500 border-dashed"
             )}
           >
-            {/* Real Video / Mock Video / Avatar Initial */}
-            {videoOn ? (
+            {/* Real Video / */}
+            {(isCurrentUser && videoOn && !webcamFailed) || (!isCurrentUser && remoteStream && remoteStream.getVideoTracks().length > 0) ? (
               <div className="absolute inset-0 bg-slate-950 flex items-center justify-center overflow-hidden">
-                {isCurrentUser && !webcamFailed ? (
+                {isCurrentUser ? (
                   <video 
                     ref={localVideoRef}
                     autoPlay 
@@ -151,22 +167,26 @@ export default function Avatar({
                     playsInline
                     className="w-full h-full object-cover scale-x-[-1]"
                   />
-                ) : employee.videoUrl ? (
+                ) : (
                   <video 
-                    src={employee.videoUrl} 
+                    ref={remoteVideoRef}
                     autoPlay 
-                    loop 
-                    muted={muted} 
                     playsInline
                     className="w-full h-full object-cover"
                   />
-                ) : employee.profileImage ? (
+                )}
+              </div>
+            ) : (
+              <div className="absolute inset-0 bg-slate-950 flex items-center justify-center overflow-hidden">
+                {employee.profileImage ? (
                   <img src={employee.profileImage} alt={employee.name} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 flex items-center justify-center">
                     <span className="font-extrabold text-white text-lg drop-shadow">{employee.name.charAt(0)}</span>
                   </div>
                 )}
+              </div>
+            )}
                 {/* Speaking Equalizer Waveform Overlay */}
                 {!muted && employee.status === 'online' && (
                   <div className="absolute bottom-1 right-1 flex items-end gap-0.5 z-10 px-1 py-0.5 rounded bg-black/60 backdrop-blur-sm">
@@ -175,15 +195,7 @@ export default function Avatar({
                     <span className="w-0.5 h-1.5 bg-emerald-400 rounded-full animate-[bounce_0.7s_infinite_0.4s]" />
                   </div>
                 )}
-              </div>
-            ) : (
-              <div className="absolute inset-0 bg-slate-950 flex items-center justify-center">
-                <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-white text-base">
-                  {employee.name.charAt(0)}
-                </div>
-              </div>
-            )}
-
+            
             {/* Mic Indicator Badge */}
             <div className="absolute top-1 right-1 flex gap-1 z-20">
               <div className={clsx("w-4 h-4 rounded-full flex items-center justify-center text-[8px] backdrop-blur-md text-white shadow-md", muted ? "bg-rose-600/90" : "bg-black/70")}>
@@ -239,20 +251,20 @@ export default function Avatar({
           >
             {isCurrentUser ? (
               <>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); setVideoOn(!videoOn); }}
-                  className={clsx("px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 text-xs font-bold shadow-md", videoOn ? "bg-slate-800 text-white hover:bg-slate-700 border border-white/10" : "bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30")}
-                >
-                  {videoOn ? <Video className="w-3.5 h-3.5 text-cyan-400" /> : <VideoOff className="w-3.5 h-3.5 text-rose-400" />}
-                  الكاميرا
-                </button>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); setMuted(!muted); }}
-                  className={clsx("px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 text-xs font-bold shadow-md", !muted ? "bg-slate-800 text-white hover:bg-slate-700 border border-white/10" : "bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30")}
-                >
-                  {!muted ? <Mic className="w-3.5 h-3.5 text-emerald-400" /> : <MicOff className="w-3.5 h-3.5 text-rose-400" />}
-                  المايكروفون
-                </button>
+                 <button 
+                   onClick={(e) => { e.stopPropagation(); handleToggleVideo(); }}
+                   className={clsx("px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 text-xs font-bold shadow-md", videoOn ? "bg-slate-800 text-white hover:bg-slate-700 border border-white/10" : "bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30")}
+                 >
+                   {videoOn ? <Video className="w-3.5 h-3.5 text-cyan-400" /> : <VideoOff className="w-3.5 h-3.5 text-rose-400" />}
+                   الكاميرا
+                 </button>
+                 <button 
+                   onClick={(e) => { e.stopPropagation(); handleToggleMute(); }}
+                   className={clsx("px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 text-xs font-bold shadow-md", !muted ? "bg-slate-800 text-white hover:bg-slate-700 border border-white/10" : "bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30")}
+                 >
+                   {!muted ? <Mic className="w-3.5 h-3.5 text-emerald-400" /> : <MicOff className="w-3.5 h-3.5 text-rose-400" />}
+                   المايكروفون
+                 </button>
               </>
             ) : (
               <>
