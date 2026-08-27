@@ -172,9 +172,6 @@ export default function VirtualOffice() {
   
   // Realtime channel ref
   const channelRef = useRef<any>(null);
-  const localWebcamTrackRef = useRef<MediaStreamTrack | null>(null);
-  const peerVideoSendersRef = useRef<Map<string, RTCRtpSender>>(new Map());
-  const mockCanvasIntervalRef = useRef<any>(null);
 
   useEffect(() => {
     setIsTouchDevice(
@@ -1089,13 +1086,10 @@ export default function VirtualOffice() {
   const createPeerConnection = (remoteId: string): RTCPeerConnection => {
     const pc = new RTCPeerConnection(RTC_CONFIG);
 
-    // Add local tracks (audio and mock video track)
+    // Add local tracks (audio and video if captured)
     if (localMicStreamRef.current) {
       localMicStreamRef.current.getTracks().forEach(track => {
-        const sender = pc.addTrack(track, localMicStreamRef.current!);
-        if (track.kind === 'video') {
-          peerVideoSendersRef.current.set(remoteId, sender);
-        }
+        pc.addTrack(track, localMicStreamRef.current!);
       });
     }
 
@@ -1125,7 +1119,8 @@ export default function VirtualOffice() {
         const ctx = getSpatialVoiceCtx();
         if (!ctx) return;
         const audioEl = new Audio();
-        audioEl.srcObject = existing.remoteStream;
+        // Create an audio-only stream to prevent browser routing issues when stream has video tracks
+        audioEl.srcObject = new MediaStream([ev.track]);
         audioEl.muted = true; // mute the HTML element; we route through Web Audio
         audioEl.play().catch(() => {});
 
@@ -1185,7 +1180,6 @@ export default function VirtualOffice() {
       rtcPeersRef.current.delete(remoteId);
     }
     pendingCandidatesRef.current.delete(remoteId);
-    peerVideoSendersRef.current.delete(remoteId);
     setRemoteStreams(prev => {
       const next = { ...prev };
       delete next[remoteId];
@@ -1298,51 +1292,31 @@ export default function VirtualOffice() {
     } catch {}
   };
 
-  const createMockVideoTrack = () => {
-    if (typeof document === 'undefined') return null;
-    const canvas = document.createElement('canvas');
-    canvas.width = 16;
-    canvas.height = 16;
-    const ctx = canvas.getContext('2d');
-    
-    if (mockCanvasIntervalRef.current) {
-      clearInterval(mockCanvasIntervalRef.current);
-    }
-
-    let toggle = false;
-    mockCanvasIntervalRef.current = setInterval(() => {
-      if (ctx) {
-        ctx.fillStyle = toggle ? '#000000' : '#111111';
-        ctx.fillRect(0, 0, 16, 16);
-        toggle = !toggle;
-      }
-    }, 1000);
-
-    const canvasStream = (canvas as any).captureStream ? (canvas as any).captureStream(1) : null;
-    return canvasStream ? canvasStream.getVideoTracks()[0] : null;
-  };
-
   // Capture microphone and camera on mount
   useEffect(() => {
     let stream: MediaStream | null = null;
     
     const captureMedia = async () => {
       try {
-        // Capture audio only first to avoid requesting webcam permission on mount
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        
-        // Add a mock video track to negotiate video stream media section from the start
-        const mockTrack = createMockVideoTrack();
-        if (mockTrack) {
-          stream.addTrack(mockTrack);
-        }
-
+        // Try to capture both audio and video
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        // Disable video track by default on capture to protect privacy
+        stream.getVideoTracks().forEach(t => { t.enabled = false; });
         localMicStreamRef.current = stream;
         setLocalStreamState(stream);
         setMediaCaptured(true);
-        console.log('Spatial Voice: Captured audio and initialized mock video track successfully');
+        console.log('Spatial Voice: Captured audio and video successfully');
       } catch (err) {
-        console.error('Spatial Voice: Microphone access denied', err);
+        console.warn('Spatial Voice: Failed capturing both, trying audio only...', err);
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          localMicStreamRef.current = stream;
+          setLocalStreamState(stream);
+          setMediaCaptured(true);
+          console.log('Spatial Voice: Captured audio only successfully');
+        } catch (err2) {
+          console.error('Spatial Voice: Microphone access denied', err2);
+        }
       }
     };
     
@@ -1350,12 +1324,6 @@ export default function VirtualOffice() {
 
     return () => {
       if (stream) stream.getTracks().forEach(t => t.stop());
-      if (localWebcamTrackRef.current) {
-        try { localWebcamTrackRef.current.stop(); } catch {}
-      }
-      if (mockCanvasIntervalRef.current) {
-        clearInterval(mockCanvasIntervalRef.current);
-      }
       localMicStreamRef.current = null;
       setLocalStreamState(null);
     };
@@ -1880,74 +1848,10 @@ export default function VirtualOffice() {
     }));
 
     if (type === 'video') {
-      if (val) {
-        try {
-          console.log('WebRTC: Capturing real webcam...');
-          const webcamStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-          const realTrack = webcamStream.getVideoTracks()[0];
-          localWebcamTrackRef.current = realTrack;
-
-          // Replace track in local stream
-          if (!localMicStreamRef.current) {
-            localMicStreamRef.current = new MediaStream();
-          }
-          // Remove any existing video tracks first
-          localMicStreamRef.current.getVideoTracks().forEach(t => {
-            localMicStreamRef.current!.removeTrack(t);
-            try { t.stop(); } catch {}
-          });
-          localMicStreamRef.current.addTrack(realTrack);
-          setLocalStreamState(new MediaStream(localMicStreamRef.current.getTracks()));
-
-          // Replace track in all peer connections
-          rtcPeersRef.current.forEach((_, peerId) => {
-            const sender = peerVideoSendersRef.current.get(peerId);
-            if (sender) {
-              sender.replaceTrack(realTrack).catch(err => {
-                console.error('WebRTC: replaceTrack to real webcam failed', err);
-              });
-            }
-          });
-        } catch (err) {
-          console.error('WebRTC: Failed to capture real webcam', err);
-          // Revert state
-          setEmployees(prev => prev.map(emp => {
-            if (emp.id === loggedInUserId) {
-              return { ...emp, isVideoOn: false };
-            }
-            return emp;
-          }));
-        }
-      } else {
-        // Stop real webcam
-        if (localWebcamTrackRef.current) {
-          try { localWebcamTrackRef.current.stop(); } catch {}
-          localWebcamTrackRef.current = null;
-        }
-
-        // Create new mock track
-        const mockTrack = createMockVideoTrack();
-        if (mockTrack && localMicStreamRef.current) {
-          const oldTrack = localMicStreamRef.current.getVideoTracks()[0];
-          if (oldTrack) {
-            localMicStreamRef.current.removeTrack(oldTrack);
-            try { oldTrack.stop(); } catch {}
-          }
-          localMicStreamRef.current.addTrack(mockTrack);
-          setLocalStreamState(new MediaStream(localMicStreamRef.current.getTracks()));
-        }
-
-        // Replace track in all peer connections with the mock track
-        if (mockTrack) {
-          rtcPeersRef.current.forEach((_, peerId) => {
-            const sender = peerVideoSendersRef.current.get(peerId);
-            if (sender) {
-              sender.replaceTrack(mockTrack).catch(err => {
-                console.error('WebRTC: replaceTrack to mock failed', err);
-              });
-            }
-          });
-        }
+      if (localMicStreamRef.current) {
+        localMicStreamRef.current.getVideoTracks().forEach(track => {
+          track.enabled = val;
+        });
       }
     } else if (type === 'audio') {
       if (localMicStreamRef.current) {
