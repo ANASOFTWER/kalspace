@@ -67,8 +67,8 @@ export default function Avatar({
   onToggleMute?: (muted: boolean) => void;
 }) {
   const [showMenu, setShowMenu] = useState(false);
-  const [videoOn, setVideoOn] = useState(employee.isVideoOn ?? false);
-  const [muted, setMuted] = useState(employee.isMuted ?? false);
+  const videoOn = employee.isVideoOn ?? false;
+  const muted = employee.isMuted ?? false;
   const [webcamFailed, setWebcamFailed] = useState(false);
   const [emojis, setEmojis] = useState<FloatingEmoji[]>([]);
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -105,15 +105,11 @@ export default function Avatar({
   }, [isCurrentUser, remoteStream, employee.isVideoOn]);
 
   const handleToggleVideo = () => {
-    const nextVal = !videoOn;
-    setVideoOn(nextVal);
-    if (onToggleVideo) onToggleVideo(nextVal);
+    if (onToggleVideo) onToggleVideo(!videoOn);
   };
 
   const handleToggleMute = () => {
-    const nextVal = !muted;
-    setMuted(nextVal);
-    if (onToggleMute) onToggleMute(nextVal);
+    if (onToggleMute) onToggleMute(!muted);
   };
 
   // Employee avatar component
