@@ -1109,23 +1109,31 @@ export default function VirtualOffice() {
 
     // When remote audio/video track arrives
     pc.ontrack = (ev) => {
-      const stream = ev.streams[0] || new MediaStream([ev.track]);
       const existing = rtcPeersRef.current.get(remoteId);
-      if (existing) {
-        existing.remoteStream = stream;
+      if (!existing) return;
+
+      // Initialize or get the peer's unified remote stream to prevent track overwrites
+      if (!existing.remoteStream) {
+        existing.remoteStream = new MediaStream();
+      }
+
+      // Add the track if it is not already in the stream
+      const trackExists = existing.remoteStream.getTracks().some(t => t.id === ev.track.id);
+      if (!trackExists) {
+        existing.remoteStream.addTrack(ev.track);
       }
 
       // Add to reactive streams state
       setRemoteStreams(prev => ({
         ...prev,
-        [remoteId]: stream
+        [remoteId]: existing.remoteStream
       }));
 
       if (ev.track.kind === 'audio') {
         const ctx = getSpatialVoiceCtx();
         if (!ctx) return;
         const audioEl = new Audio();
-        audioEl.srcObject = stream;
+        audioEl.srcObject = existing.remoteStream;
         audioEl.muted = true; // mute the HTML element; we route through Web Audio
         audioEl.play().catch(() => {});
 
