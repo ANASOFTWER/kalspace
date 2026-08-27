@@ -158,7 +158,7 @@ export default function TasksPage() {
   ];
 
   return (
-    <div className="h-full p-4 md:p-6 flex flex-col animate-fade-in-up">
+    <div className="min-h-full p-4 md:p-6 pb-24 md:pb-6 flex flex-col animate-fade-in-up">
 
 
       <div className="flex items-center justify-between mb-8">

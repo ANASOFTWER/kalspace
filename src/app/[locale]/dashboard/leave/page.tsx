@@ -253,7 +253,7 @@ export default function LeavePage() {
   const isManager = currentUserRole === 'admin' || currentUserRole === 'manager';
 
   return (
-    <div className="h-full p-4 md:p-6 flex flex-col animate-fade-in-up">
+    <div className="min-h-full p-4 md:p-6 pb-24 md:pb-6 flex flex-col animate-fade-in-up">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white">طلبات الإجازات (Leave Requests)</h1>

@@ -237,7 +237,7 @@ export default function EmployeesPage() {
   );
 
   return (
-    <div className="h-full p-4 md:p-6 flex flex-col animate-fade-in-up">
+    <div className="min-h-full p-4 md:p-6 pb-24 md:pb-6 flex flex-col animate-fade-in-up">
 
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
