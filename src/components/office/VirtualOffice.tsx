@@ -172,6 +172,7 @@ export default function VirtualOffice() {
   
   // Realtime channel ref
   const channelRef = useRef<any>(null);
+  const localWebcamTrackRef = useRef<MediaStreamTrack | null>(null);
 
   useEffect(() => {
     setIsTouchDevice(
@@ -1283,31 +1284,41 @@ export default function VirtualOffice() {
     } catch {}
   };
 
+  const createMockVideoTrack = () => {
+    if (typeof document === 'undefined') return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = 16;
+    canvas.height = 16;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = 'black';
+      ctx.fillRect(0, 0, 16, 16);
+    }
+    const canvasStream = (canvas as any).captureStream ? (canvas as any).captureStream(1) : null;
+    return canvasStream ? canvasStream.getVideoTracks()[0] : null;
+  };
+
   // Capture microphone and camera on mount
   useEffect(() => {
     let stream: MediaStream | null = null;
     
     const captureMedia = async () => {
       try {
-        // Try to capture both audio and video
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-        // Disable video track by default on capture to protect privacy
-        stream.getVideoTracks().forEach(t => { t.enabled = false; });
+        // Capture audio only first to avoid requesting webcam permission on mount
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        
+        // Add a mock video track to negotiate video stream media section from the start
+        const mockTrack = createMockVideoTrack();
+        if (mockTrack) {
+          stream.addTrack(mockTrack);
+        }
+
         localMicStreamRef.current = stream;
         setLocalStreamState(stream);
         setMediaCaptured(true);
-        console.log('Spatial Voice: Captured audio and video successfully');
+        console.log('Spatial Voice: Captured audio and initialized mock video track successfully');
       } catch (err) {
-        console.warn('Spatial Voice: Failed capturing both, trying audio only...', err);
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-          localMicStreamRef.current = stream;
-          setLocalStreamState(stream);
-          setMediaCaptured(true);
-          console.log('Spatial Voice: Captured audio only successfully');
-        } catch (err2) {
-          console.error('Spatial Voice: Microphone access denied', err2);
-        }
+        console.error('Spatial Voice: Microphone access denied', err);
       }
     };
     
@@ -1315,6 +1326,9 @@ export default function VirtualOffice() {
 
     return () => {
       if (stream) stream.getTracks().forEach(t => t.stop());
+      if (localWebcamTrackRef.current) {
+        try { localWebcamTrackRef.current.stop(); } catch {}
+      }
       localMicStreamRef.current = null;
       setLocalStreamState(null);
     };
@@ -1830,13 +1844,90 @@ export default function VirtualOffice() {
     setPrivateCallTargetId(null);
   };
 
-  const handleLocalMediaToggle = (type: 'video' | 'audio', val: boolean) => {
+  const handleLocalMediaToggle = async (type: 'video' | 'audio', val: boolean) => {
     setEmployees(prev => prev.map(emp => {
       if (emp.id === loggedInUserId) {
         return type === 'video' ? { ...emp, isVideoOn: val } : { ...emp, isMuted: val };
       }
       return emp;
     }));
+
+    if (type === 'video') {
+      if (val) {
+        try {
+          console.log('WebRTC: Capturing real webcam...');
+          const webcamStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          const realTrack = webcamStream.getVideoTracks()[0];
+          localWebcamTrackRef.current = realTrack;
+
+          // Replace track in local stream
+          if (localMicStreamRef.current) {
+            const oldTrack = localMicStreamRef.current.getVideoTracks()[0];
+            if (oldTrack) {
+              localMicStreamRef.current.removeTrack(oldTrack);
+              try { oldTrack.stop(); } catch {}
+            }
+            localMicStreamRef.current.addTrack(realTrack);
+            setLocalStreamState(new MediaStream(localMicStreamRef.current.getTracks()));
+          }
+
+          // Replace track in all peer connections
+          rtcPeersRef.current.forEach(peer => {
+            const sender = peer.pc.getSenders().find(s => s.track && s.track.kind === 'video');
+            if (sender) {
+              sender.replaceTrack(realTrack).catch(err => {
+                console.error('WebRTC: replaceTrack to real webcam failed', err);
+              });
+            }
+          });
+        } catch (err) {
+          console.error('WebRTC: Failed to capture real webcam', err);
+          // Revert state
+          setEmployees(prev => prev.map(emp => {
+            if (emp.id === loggedInUserId) {
+              return { ...emp, isVideoOn: false };
+            }
+            return emp;
+          }));
+        }
+      } else {
+        // Stop real webcam
+        if (localWebcamTrackRef.current) {
+          try { localWebcamTrackRef.current.stop(); } catch {}
+          localWebcamTrackRef.current = null;
+        }
+
+        // Create new mock track
+        const mockTrack = createMockVideoTrack();
+        if (mockTrack && localMicStreamRef.current) {
+          const oldTrack = localMicStreamRef.current.getVideoTracks()[0];
+          if (oldTrack) {
+            localMicStreamRef.current.removeTrack(oldTrack);
+            try { oldTrack.stop(); } catch {}
+          }
+          localMicStreamRef.current.addTrack(mockTrack);
+          setLocalStreamState(new MediaStream(localMicStreamRef.current.getTracks()));
+        }
+
+        // Replace track in all peer connections
+        if (mockTrack) {
+          rtcPeersRef.current.forEach(peer => {
+            const sender = peer.pc.getSenders().find(s => s.track && s.track.kind === 'video');
+            if (sender) {
+              sender.replaceTrack(mockTrack).catch(err => {
+                console.error('WebRTC: replaceTrack to mock track failed', err);
+              });
+            }
+          });
+        }
+      }
+    } else if (type === 'audio') {
+      if (localMicStreamRef.current) {
+        localMicStreamRef.current.getAudioTracks().forEach(track => {
+          track.enabled = !val;
+        });
+      }
+    }
 
     if (channelRef.current) {
       channelRef.current.send({

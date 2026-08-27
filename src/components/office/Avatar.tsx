@@ -92,22 +92,12 @@ export default function Avatar({
   const handleToggleVideo = () => {
     const nextVal = !videoOn;
     setVideoOn(nextVal);
-    if (localStream) {
-      localStream.getVideoTracks().forEach(track => {
-        track.enabled = nextVal;
-      });
-    }
     if (onToggleVideo) onToggleVideo(nextVal);
   };
 
   const handleToggleMute = () => {
     const nextVal = !muted;
     setMuted(nextVal);
-    if (localStream) {
-      localStream.getAudioTracks().forEach(track => {
-        track.enabled = !nextVal;
-      });
-    }
     if (onToggleMute) onToggleMute(nextVal);
   };
 
