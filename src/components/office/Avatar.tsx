@@ -79,6 +79,9 @@ export default function Avatar({
     if (isCurrentUser && localStream && localVideoRef.current) {
       setWebcamFailed(false);
       localVideoRef.current.srcObject = localStream;
+      localVideoRef.current.play().catch(err => {
+        console.warn("Local video play failed:", err);
+      });
     }
   }, [isCurrentUser, localStream, videoOn]);
 
@@ -86,6 +89,9 @@ export default function Avatar({
   useEffect(() => {
     if (!isCurrentUser && remoteStream && remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = remoteStream;
+      remoteVideoRef.current.play().catch(err => {
+        console.warn("Remote video play failed:", err);
+      });
     }
   }, [isCurrentUser, remoteStream, employee.isVideoOn]);
 
@@ -167,6 +173,7 @@ export default function Avatar({
                   <video 
                     ref={remoteVideoRef}
                     autoPlay 
+                    muted
                     playsInline
                     className="w-full h-full object-cover"
                   />
