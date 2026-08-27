@@ -1087,11 +1087,22 @@ export default function VirtualOffice() {
   const createPeerConnection = (remoteId: string): RTCPeerConnection => {
     const pc = new RTCPeerConnection(RTC_CONFIG);
 
-    // Add local mic tracks
+    // Add local audio track
     if (localMicStreamRef.current) {
-      localMicStreamRef.current.getTracks().forEach(track => {
-        pc.addTrack(track, localMicStreamRef.current!);
+      const audioTrack = localMicStreamRef.current.getAudioTracks()[0];
+      if (audioTrack) {
+        pc.addTrack(audioTrack, localMicStreamRef.current);
+      }
+    }
+
+    // Add video transceiver to pre-negotiate video channel without track (or with track if active)
+    if (pc.addTransceiver) {
+      pc.addTransceiver(localWebcamTrackRef.current || 'video', {
+        direction: 'sendrecv',
+        streams: localMicStreamRef.current ? [localMicStreamRef.current] : []
       });
+    } else if (localWebcamTrackRef.current && localMicStreamRef.current) {
+      pc.addTrack(localWebcamTrackRef.current, localMicStreamRef.current);
     }
 
     // When remote audio/video track arrives
@@ -1284,41 +1295,24 @@ export default function VirtualOffice() {
     } catch {}
   };
 
-  const createMockVideoTrack = () => {
-    if (typeof document === 'undefined') return null;
-    const canvas = document.createElement('canvas');
-    canvas.width = 16;
-    canvas.height = 16;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.fillStyle = 'black';
-      ctx.fillRect(0, 0, 16, 16);
-    }
-    const canvasStream = (canvas as any).captureStream ? (canvas as any).captureStream(1) : null;
-    return canvasStream ? canvasStream.getVideoTracks()[0] : null;
-  };
-
   // Capture microphone and camera on mount
   useEffect(() => {
     let stream: MediaStream | null = null;
     
     const captureMedia = async () => {
       try {
-        // Capture audio only first to avoid requesting webcam permission on mount
+        // Capture audio only on mount
         stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        
-        // Add a mock video track to negotiate video stream media section from the start
-        const mockTrack = createMockVideoTrack();
-        if (mockTrack) {
-          stream.addTrack(mockTrack);
-        }
-
         localMicStreamRef.current = stream;
         setLocalStreamState(stream);
         setMediaCaptured(true);
-        console.log('Spatial Voice: Captured audio and initialized mock video track successfully');
+        console.log('Spatial Voice: Captured audio successfully');
       } catch (err) {
-        console.error('Spatial Voice: Microphone access denied', err);
+        console.warn('Spatial Voice: Failed capturing audio, using empty stream...', err);
+        stream = new MediaStream();
+        localMicStreamRef.current = stream;
+        setLocalStreamState(stream);
+        setMediaCaptured(true);
       }
     };
     
@@ -1861,19 +1855,21 @@ export default function VirtualOffice() {
           localWebcamTrackRef.current = realTrack;
 
           // Replace track in local stream
-          if (localMicStreamRef.current) {
-            const oldTrack = localMicStreamRef.current.getVideoTracks()[0];
-            if (oldTrack) {
-              localMicStreamRef.current.removeTrack(oldTrack);
-              try { oldTrack.stop(); } catch {}
-            }
-            localMicStreamRef.current.addTrack(realTrack);
-            setLocalStreamState(new MediaStream(localMicStreamRef.current.getTracks()));
+          if (!localMicStreamRef.current) {
+            localMicStreamRef.current = new MediaStream();
           }
+          // Remove any existing video tracks first
+          localMicStreamRef.current.getVideoTracks().forEach(t => {
+            localMicStreamRef.current!.removeTrack(t);
+            try { t.stop(); } catch {}
+          });
+          localMicStreamRef.current.addTrack(realTrack);
+          setLocalStreamState(new MediaStream(localMicStreamRef.current.getTracks()));
 
           // Replace track in all peer connections
           rtcPeersRef.current.forEach(peer => {
-            const sender = peer.pc.getSenders().find(s => s.track && s.track.kind === 'video');
+            const transceiver = peer.pc.getTransceivers().find(t => t.receiver && t.receiver.track && t.receiver.track.kind === 'video');
+            const sender = transceiver ? transceiver.sender : null;
             if (sender) {
               sender.replaceTrack(realTrack).catch(err => {
                 console.error('WebRTC: replaceTrack to real webcam failed', err);
@@ -1897,29 +1893,25 @@ export default function VirtualOffice() {
           localWebcamTrackRef.current = null;
         }
 
-        // Create new mock track
-        const mockTrack = createMockVideoTrack();
-        if (mockTrack && localMicStreamRef.current) {
-          const oldTrack = localMicStreamRef.current.getVideoTracks()[0];
-          if (oldTrack) {
-            localMicStreamRef.current.removeTrack(oldTrack);
-            try { oldTrack.stop(); } catch {}
-          }
-          localMicStreamRef.current.addTrack(mockTrack);
+        // Remove video track from local stream
+        if (localMicStreamRef.current) {
+          localMicStreamRef.current.getVideoTracks().forEach(t => {
+            localMicStreamRef.current!.removeTrack(t);
+            try { t.stop(); } catch {}
+          });
           setLocalStreamState(new MediaStream(localMicStreamRef.current.getTracks()));
         }
 
-        // Replace track in all peer connections
-        if (mockTrack) {
-          rtcPeersRef.current.forEach(peer => {
-            const sender = peer.pc.getSenders().find(s => s.track && s.track.kind === 'video');
-            if (sender) {
-              sender.replaceTrack(mockTrack).catch(err => {
-                console.error('WebRTC: replaceTrack to mock track failed', err);
-              });
-            }
-          });
-        }
+        // Replace track in all peer connections with null
+        rtcPeersRef.current.forEach(peer => {
+          const transceiver = peer.pc.getTransceivers().find(t => t.receiver && t.receiver.track && t.receiver.track.kind === 'video');
+          const sender = transceiver ? transceiver.sender : null;
+          if (sender) {
+            sender.replaceTrack(null).catch(err => {
+              console.error('WebRTC: replaceTrack to null failed', err);
+            });
+          }
+        });
       }
     } else if (type === 'audio') {
       if (localMicStreamRef.current) {
