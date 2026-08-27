@@ -92,6 +92,15 @@ export default function Avatar({
       remoteVideoRef.current.play().catch(err => {
         console.warn("Remote video play failed:", err);
       });
+
+      // Listen to onunmute event on remote video tracks to play when packets arrive
+      remoteStream.getVideoTracks().forEach(track => {
+        track.onunmute = () => {
+          if (remoteVideoRef.current) {
+            remoteVideoRef.current.play().catch(() => {});
+          }
+        };
+      });
     }
   }, [isCurrentUser, remoteStream, employee.isVideoOn]);
 
