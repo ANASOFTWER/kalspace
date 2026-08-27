@@ -5,7 +5,7 @@ import Sidebar from '@/components/navigation/Sidebar';
 import MobileNav from '@/components/navigation/MobileNav';
 import { supabase } from '@/lib/supabase';
 import { AlertOctagon, LogOut, RefreshCw } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useLocale } from 'next-intl';
 
 export default function DashboardLayout({
@@ -133,11 +133,14 @@ export default function DashboardLayout({
     );
   }
 
+  const pathname = usePathname();
+  const isOfficePage = pathname?.endsWith('/office');
+
   return (
     <div className="flex h-screen bg-[#050816] overflow-hidden">
       <Sidebar />
       <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
-        <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
+        <main className={`flex-1 overflow-y-auto md:pb-0 ${isOfficePage ? 'pb-0' : 'pb-16'}`}>
           {children}
         </main>
       </div>

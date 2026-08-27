@@ -154,7 +154,16 @@ export default function VirtualOffice() {
   const baseScale = Math.min(containerSize.w / mapWidth, containerSize.h / mapHeight);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   const [joystickOffset, setJoystickOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [showControlsToggle, setShowControlsToggle] = useState(true);
+  const [showControlsToggle, setShowControlsToggle] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('show_joystick_controls') !== 'false';
+    }
+    return true;
+  });
+  const handleToggleControls = (val: boolean) => {
+    setShowControlsToggle(val);
+    localStorage.setItem('show_joystick_controls', String(val));
+  };
   const showControls = (isTouchDevice || containerSize.w < 1024) && showControlsToggle;
   const lastTouchPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   
@@ -2005,7 +2014,7 @@ export default function VirtualOffice() {
             {/* Show/Hide controls button (Mobile only) */}
             {isTouchDevice && (
               <button 
-                onClick={() => setShowControlsToggle(!showControlsToggle)}
+                onClick={() => handleToggleControls(!showControlsToggle)}
                 className={clsx(
                   "px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 shadow-lg pointer-events-auto",
                   showControlsToggle 

@@ -158,7 +158,7 @@ export default function OfficeSidebar({
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 320, opacity: 0 }}
             transition={{ type: "spring", bounce: 0, duration: 0.4 }}
-            className="h-[calc(100vh-4rem)] md:h-screen border-l border-white/15 bg-slate-950/95 backdrop-blur-xl flex flex-col z-45 w-[320px] absolute right-0 top-0 overflow-hidden shadow-[-20px_0_40px_rgba(0,0,0,0.5)]"
+            className="absolute top-0 bottom-16 md:bottom-0 right-0 w-[320px] border-l border-white/15 bg-slate-950/95 backdrop-blur-xl flex flex-col z-45 overflow-hidden shadow-[-20px_0_40px_rgba(0,0,0,0.5)]"
           >
             {/* Collapse Button Header */}
             <div className="flex items-center justify-between p-3 border-b border-white/10 shrink-0" dir="rtl">
@@ -266,15 +266,25 @@ export default function OfficeSidebar({
                                 >
                                   Teleport
                                 </button>
-                                {onStartPrivateCall && (
-                                  <button 
-                                    onClick={() => onStartPrivateCall(emp.id)}
-                                    className="p-1.5 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white rounded border border-emerald-500/30 transition-all shrink-0 font-bold"
-                                    title="مكالمة خاصة"
-                                  >
-                                    📞
-                                  </button>
-                                )}
+                                 <button 
+                                   onClick={() => {
+                                     setMessageTarget(emp.id);
+                                     setActiveTab('chat');
+                                   }}
+                                   className="p-1.5 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white rounded border border-indigo-500/30 transition-all shrink-0 font-bold"
+                                   title="مراسلة خاصة"
+                                 >
+                                   💬
+                                 </button>
+                                 {onStartPrivateCall && (
+                                   <button 
+                                     onClick={() => onStartPrivateCall(emp.id)}
+                                     className="p-1.5 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white rounded border border-emerald-500/30 transition-all shrink-0 font-bold"
+                                     title="مكالمة خاصة"
+                                   >
+                                     📞
+                                   </button>
+                                 )}
                               </div>
                             )}
                            {/* Delete Button for Managers/HR */}
