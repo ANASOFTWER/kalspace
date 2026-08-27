@@ -1271,9 +1271,10 @@ export default function VirtualOffice() {
       // Only consider real DB users (UUID length)
       if (emp.id.length < 10) return;
 
+      const isPrivateCall = callActive && privateCallTargetId === emp.id;
       const dist = Math.hypot((currentUser.x || 0) - emp.x, (currentUser.y || 0) - emp.y);
 
-      if (dist < SPATIAL_VOICE_RANGE) {
+      if (dist < SPATIAL_VOICE_RANGE || isPrivateCall) {
         inRangeIds.add(emp.id);
 
         // If no connection yet and we should initiate, do so
@@ -1289,7 +1290,7 @@ export default function VirtualOffice() {
         destroyPeer(peerId);
       }
     });
-  }, [employees, currentUser?.x, currentUser?.y, loggedInUserId]);
+  }, [employees, currentUser?.x, currentUser?.y, loggedInUserId, callActive, privateCallTargetId]);
 
   // Adjust volume for each connected peer based on distance
   useEffect(() => {
@@ -1298,10 +1299,11 @@ export default function VirtualOffice() {
       const emp = employees.find(e => e.id === peerId);
       if (!emp || !peer.gainNode) return;
 
+      const isPrivateCall = callActive && privateCallTargetId === peerId;
       const dist = Math.hypot((currentUser.x || 0) - emp.x, (currentUser.y || 0) - emp.y);
-      const volume = dist < SPATIAL_VOICE_RANGE
-        ? Math.max(0, 1 - dist / SPATIAL_VOICE_RANGE)
-        : 0;
+      const volume = isPrivateCall
+        ? 1.0
+        : (dist < SPATIAL_VOICE_RANGE ? Math.max(0, 1 - dist / SPATIAL_VOICE_RANGE) : 0);
 
       try {
         const ctx = peer.gainNode.context;
@@ -1309,7 +1311,7 @@ export default function VirtualOffice() {
         peer.gainNode.gain.setTargetAtTime(volume, ctx.currentTime, 0.15);
       } catch {}
     });
-  }, [employees, currentUser?.x, currentUser?.y]);
+  }, [employees, currentUser?.x, currentUser?.y, callActive, privateCallTargetId]);
 
   // Cleanup all WebRTC peers and mic on unmount
   useEffect(() => {
@@ -1708,10 +1710,6 @@ export default function VirtualOffice() {
         fromName: currentUser?.name || 'زميلك',
         to: targetId
       }
-    }).then((status: string) => {
-      console.log('Realtime: private_call_invite broadcast status:', status);
-    }).catch((err: any) => {
-      console.error('Realtime: Failed to send private_call_invite:', err);
     });
   };
 
@@ -1738,10 +1736,6 @@ export default function VirtualOffice() {
         from: loggedInUserId,
         to: incomingCall.from
       }
-    }).then((status: string) => {
-      console.log('Realtime: private_call_accept broadcast status:', status);
-    }).catch((err: any) => {
-      console.error('Realtime: Failed to send private_call_accept:', err);
     });
   };
 
