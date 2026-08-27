@@ -53,7 +53,9 @@ export default function Avatar({
   onDelete, 
   onPrivateCall,
   remoteStream,
-  localStream
+  localStream,
+  onToggleVideo,
+  onToggleMute,
 }: { 
   employee: Employee; 
   isCurrentUser?: boolean; 
@@ -61,6 +63,8 @@ export default function Avatar({
   onPrivateCall?: () => void;
   remoteStream?: MediaStream | null;
   localStream?: MediaStream | null;
+  onToggleVideo?: (enabled: boolean) => void;
+  onToggleMute?: (muted: boolean) => void;
 }) {
   const [showMenu, setShowMenu] = useState(false);
   const [videoOn, setVideoOn] = useState(employee.isVideoOn ?? false);
@@ -76,14 +80,14 @@ export default function Avatar({
       setWebcamFailed(false);
       localVideoRef.current.srcObject = localStream;
     }
-  }, [isCurrentUser, localStream]);
+  }, [isCurrentUser, localStream, videoOn]);
 
   // Display remote webcam from passed remoteStream
   useEffect(() => {
     if (!isCurrentUser && remoteStream && remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = remoteStream;
     }
-  }, [isCurrentUser, remoteStream]);
+  }, [isCurrentUser, remoteStream, employee.isVideoOn]);
 
   const handleToggleVideo = () => {
     const nextVal = !videoOn;
@@ -93,6 +97,7 @@ export default function Avatar({
         track.enabled = nextVal;
       });
     }
+    if (onToggleVideo) onToggleVideo(nextVal);
   };
 
   const handleToggleMute = () => {
@@ -103,6 +108,7 @@ export default function Avatar({
         track.enabled = !nextVal;
       });
     }
+    if (onToggleMute) onToggleMute(nextVal);
   };
 
   // Employee avatar component
@@ -157,7 +163,7 @@ export default function Avatar({
             )}
           >
             {/* Real Video / */}
-            {(isCurrentUser && videoOn && !webcamFailed) || (!isCurrentUser && remoteStream && remoteStream.getVideoTracks().length > 0) ? (
+            {(isCurrentUser && videoOn && !webcamFailed) || (!isCurrentUser && employee.isVideoOn) ? (
               <div className="absolute inset-0 bg-slate-950 flex items-center justify-center overflow-hidden">
                 {isCurrentUser ? (
                   <video 

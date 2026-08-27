@@ -165,6 +165,7 @@ export default function VirtualOffice() {
     localStorage.setItem('show_joystick_controls', String(val));
   };
   const showControls = (isTouchDevice || containerSize.w < 1024) && showControlsToggle;
+  const [mediaCaptured, setMediaCaptured] = useState(false);
   const lastTouchPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   
   // Realtime channel ref
@@ -956,6 +957,16 @@ export default function VirtualOffice() {
         const { size } = payload.payload;
         setCompanySize(size);
       })
+      .on('broadcast', { event: 'user_media_toggle' }, (payload) => {
+        const { id, type, val } = payload.payload;
+        console.log('Realtime: Received user_media_toggle', { id, type, val });
+        setEmployees(prev => prev.map(emp => {
+          if (emp.id?.toLowerCase() === id?.toLowerCase()) {
+            return type === 'video' ? { ...emp, isVideoOn: val } : { ...emp, isMuted: val };
+          }
+          return emp;
+        }));
+      })
       .subscribe(async (status) => {
         console.log('Presence Subscription Status:', status);
         setRealtimeStatus(status);
@@ -1270,12 +1281,14 @@ export default function VirtualOffice() {
         // Disable video track by default on capture to protect privacy
         stream.getVideoTracks().forEach(t => { t.enabled = false; });
         localMicStreamRef.current = stream;
+        setMediaCaptured(true);
         console.log('Spatial Voice: Captured audio and video successfully');
       } catch (err) {
         console.warn('Spatial Voice: Failed capturing both, trying audio only...', err);
         try {
           stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
           localMicStreamRef.current = stream;
+          setMediaCaptured(true);
           console.log('Spatial Voice: Captured audio only successfully');
         } catch (err2) {
           console.error('Spatial Voice: Microphone access denied', err2);
@@ -1293,7 +1306,7 @@ export default function VirtualOffice() {
 
   // Manage peer connections based on proximity
   useEffect(() => {
-    if (!currentUser || loggedInUserId === 'loading' || !channelRef.current) return;
+    if (!currentUser || loggedInUserId === 'loading' || !channelRef.current || !mediaCaptured) return;
 
     const inRangeIds = new Set<string>();
 
@@ -1321,7 +1334,7 @@ export default function VirtualOffice() {
         destroyPeer(peerId);
       }
     });
-  }, [employees, currentUser?.x, currentUser?.y, loggedInUserId, callActive, privateCallTargetId]);
+  }, [employees, currentUser?.x, currentUser?.y, loggedInUserId, callActive, privateCallTargetId, mediaCaptured]);
 
   // Adjust volume for each connected peer based on distance
   useEffect(() => {
@@ -1799,6 +1812,27 @@ export default function VirtualOffice() {
 
     setCallActive(false);
     setPrivateCallTargetId(null);
+  };
+
+  const handleLocalMediaToggle = (type: 'video' | 'audio', val: boolean) => {
+    setEmployees(prev => prev.map(emp => {
+      if (emp.id === loggedInUserId) {
+        return type === 'video' ? { ...emp, isVideoOn: val } : { ...emp, isMuted: val };
+      }
+      return emp;
+    }));
+
+    if (channelRef.current) {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'user_media_toggle',
+        payload: {
+          id: loggedInUserId,
+          type,
+          val
+        }
+      });
+    }
   };
 
   // Determine dynamic blueprint background mapping based on companySize choice and theme
@@ -2336,6 +2370,8 @@ export default function VirtualOffice() {
                           onPrivateCall={() => setPrivateCallTargetId(emp.id)}
                           remoteStream={remoteStream}
                           localStream={localMicStreamRef.current}
+                          onToggleVideo={(enabled) => handleLocalMediaToggle('video', enabled)}
+                          onToggleMute={(muted) => handleLocalMediaToggle('audio', muted)}
                         />
                       );
                     })()}
